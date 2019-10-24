@@ -1,6 +1,6 @@
 # SX126x - Semtech UHF LoRa Transceivers
 
-This is a a repository for my Arduino library for the Semtech SX1262 and SX1262 LoRa devices. 
+This is a a repository for my Arduino library for the Semtech SX1261 and SX1262 LoRa devices. 
 
 
 **The Semtech SX1261 and SX1262 are 3.3V logic level device, do not use with 5V logic level Arduinos.** The programs have only been tested on 3.3V 8Mhz ATMega328P and ATMega1284P processors. 
@@ -11,7 +11,15 @@ Most programs use a LED as an indicator and this is defined as pin LED1. Some pr
  
 The SX126x operates in the sub-GHz UHF bands, 150 MHz to 960 MHz. In addition to having a LoRa modem the SX126x can send GFSK packets. The library only supports LoRa. 
 
-The SX1262 module from NiceRF uses a TCXO instead of a plain crystal and this makes operation at the narrowest bandwidth of 7.8Khz possible. The NiceRF SX1262 also implements switched DCDC converter to power the internals of the LoRa receiver which cuts receive current to about half of the value of SX127X based devices. The SX1261 can also implement the DCDC converter for the transmit side, which promises to significantly improve battery life. As yet there are no readily available small SX1261 modules. 
+The SX1262 module from NiceRF uses a TCXO instead of a plain crystal and this makes operation at the narrowest bandwidth of 7.8Khz possible. The NiceRF SX1262 also implements switched DCDC converter to power the internals of the LoRa receiver which cuts receive current to about half of the value of SX127X based devices. The SX1261 can also implement the DCDC converter for the transmit side, which promises to significantly improve battery life. As yet there are no readily available small SX1261 modules.
+
+Because of the different ways the SX1261 and SX1262 handle transmissions it is necessary to define which part is being used. This can be done by a specific call to when setting the PA config function;
+
+SX126XLT.setPaConfig(0x04, HPMAXAUTO, DEVICE_SX1262);
+
+or in the all in one setup function;
+
+SX126XLT.setupLoRaTX(Frequency, Offset, SpreadingFactor, Bandwidth, CodeRate, Optimisation, DEVICE_SX1262);
 
 The library is in its first revision, there are still some issues to attend to and changes to be made, see the section 'Changes Required to Library' at the bottom of this document. 
 

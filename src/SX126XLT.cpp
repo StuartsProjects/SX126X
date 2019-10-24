@@ -1,38 +1,27 @@
-#include <SX1262LT.h>
+#include <SX126XLT.h>
 #include <SPI.h>
 
-//#define SX1262DEBUG             //enable level 1 debug messages
-//#define SX1262DEBUG2              //enable level 2 debug messages
-//#define SX1262DEBUG3             //enable level 2 debug messages
+//#define SX126XDEBUG             //enable level 1 debug messages
 
 /*
 ****************************************************************************
  To Do:
  
- configuration of the register holding the "SX_RX_GAIN_BOOSTED" configuration is not retained in 
- case of a warm reset sleep mode. It means that, when the chip wakes up from sleep mode, the 
- register will have the reset value - i.e. "standard" Rx.
  
- DONE - Add routines for auto calculation of low data rate optimisation setting
- Check frequency bytes versus NiceRF code
- 
- Implement changes in datesheet 15. Known Limitations
- Test wakeup with 64khz RTC clock.
-
 ****************************************************************************
 */
 
-SX1262Class::SX1262Class()
+SX126XClass::SX126XClass()
 {
   //Anything you need when instantiating your object goes here
 }
 
 
-bool SX1262Class::begin(int8_t pinNSS, int8_t pinNRESET, int8_t pinRFBUSY, int8_t pinDIO1, int8_t pinDIO2, int8_t pinDIO3)
+bool SX126XClass::begin(int8_t pinNSS, int8_t pinNRESET, int8_t pinRFBUSY, int8_t pinDIO1, int8_t pinDIO2, int8_t pinDIO3)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("begin()"));
-  Serial.println(F("SX1262Class constructor instantiated successfully"));
+  Serial.println(F("SX126XClass constructor instantiated successfully"));
   Serial.print(F("NSS "));
   Serial.println(_NSS);
   Serial.print(F("NRESET "));
@@ -68,10 +57,10 @@ bool SX1262Class::begin(int8_t pinNSS, int8_t pinNRESET, int8_t pinRFBUSY, int8_
 }
 
 
-void SX1262Class::pinInit(int8_t _NSS, int8_t _NRESET, int8_t _RFBUSY, int8_t _DIO1, int8_t _DIO2, int8_t _DIO3)
+void SX126XClass::pinInit(int8_t _NSS, int8_t _NRESET, int8_t _RFBUSY, int8_t _DIO1, int8_t _DIO2, int8_t _DIO3)
 {
 
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("Pin_Init()"));
 #endif
 
@@ -110,9 +99,9 @@ void SX1262Class::pinInit(int8_t _NSS, int8_t _NRESET, int8_t _RFBUSY, int8_t _D
 }
 
 
-void SX1262Class::spiInit(uint8_t msborder, uint8_t clockdiv, uint8_t mode)
+void SX126XClass::spiInit(uint8_t msborder, uint8_t clockdiv, uint8_t mode)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("spiInit()"));
 #endif
   SPI.begin();
@@ -124,12 +113,47 @@ void SX1262Class::spiInit(uint8_t msborder, uint8_t clockdiv, uint8_t mode)
 }
 
 
-void SX1262Class::rxtxpinInit(int8_t pinRXEN, int8_t pinTXEN)
+void SX126XClass::setupLoRaTX(uint32_t frequency, int32_t offset, uint8_t modParam1, uint8_t modParam2, uint8_t  modParam3, uint8_t modParam4, uint8_t device)
 {
-#ifdef SX1262DEBUG
+  setStandby(MODE_STDBY_RC);
+  setRegulatorMode(USE_DCDC);
+  setPaConfig(0x04, HPMAXAUTO, device);
+  setDIO3AsTCXOCtrl(TCXO_CTRL_3_3V);
+  calibrateDevice(ALLDevices);                //is required after setting TCXO
+  setDIO2AsRfSwitchCtrl();
+  setPacketType(PACKET_TYPE_LORA);
+  setRfFrequency(frequency, offset);
+  setModulationParams(modParam1, modParam2, modParam3, modParam4);
+  setBufferBaseAddress(0, 0);
+  setPacketParams(8, LORA_PACKET_VARIABLE_LENGTH, 255, LORA_CRC_ON, LORA_IQ_NORMAL);
+  setDioIrqParams(IRQ_RADIO_ALL, (IRQ_TX_DONE + IRQ_RX_TX_TIMEOUT), 0, 0);   //set for IRQ on TX done and timeout on DIO1
+}
+
+
+void SX126XClass::setupLoRaRX(uint32_t frequency, int32_t offset, uint8_t modParam1, uint8_t modParam2, uint8_t  modParam3, uint8_t modParam4, uint8_t device)
+{
+  setStandby(MODE_STDBY_RC);
+  setRegulatorMode(USE_DCDC);
+  setPaConfig(0x04, HPMAXAUTO, device);
+  setDIO3AsTCXOCtrl(TCXO_CTRL_3_3V);
+  calibrateDevice(ALLDevices);                //is required after setting TCXO
+  setDIO2AsRfSwitchCtrl();
+  setPacketType(PACKET_TYPE_LORA);
+  setRfFrequency(frequency, offset);
+  setModulationParams(modParam1, modParam2, modParam3, modParam4);
+  setBufferBaseAddress(0, 0);
+  setPacketParams(8, LORA_PACKET_VARIABLE_LENGTH, 255, LORA_CRC_ON, LORA_IQ_NORMAL);
+  setDioIrqParams(IRQ_RADIO_ALL, (IRQ_RX_DONE + IRQ_RX_TX_TIMEOUT), 0, 0);   //set for IRQ on TX done and timeout on DIO1
+  setHighSensitivity();
+}
+
+
+void SX126XClass::rxtxInit(int8_t pinRXEN, int8_t pinTXEN)
+{
+#ifdef SX126XDEBUG
   Serial.println(F("rxtxpinInit()"));
 #endif
-
+  _rxtxpinmode = true;
   _RXEN = pinRXEN;
   _TXEN = pinTXEN;
 
@@ -140,9 +164,9 @@ void SX1262Class::rxtxpinInit(int8_t pinRXEN, int8_t pinTXEN)
 }
 
 
-void SX1262Class::resetDevice()
+void SX126XClass::resetDevice()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("resetDevice()"));
 #endif
 
@@ -155,9 +179,9 @@ void SX1262Class::resetDevice()
 }
 
 
-void SX1262Class::setStandby(uint8_t standbyconfig)
+void SX126XClass::setStandby(uint8_t standbyconfig)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setStandby()"));
 #endif
 
@@ -170,9 +194,9 @@ void SX1262Class::setStandby(uint8_t standbyconfig)
 }
 
 
-void SX1262Class::checkBusy()
+void SX126XClass::checkBusy()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("checkBusy()"));
 #endif
 
@@ -197,9 +221,9 @@ void SX1262Class::checkBusy()
 }
 
 
-void SX1262Class::setPacketType(uint8_t packettype )
+void SX126XClass::setPacketType(uint8_t packettype )
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setPacketType()"));
 #endif
   savedPacketType = packettype;
@@ -208,9 +232,9 @@ void SX1262Class::setPacketType(uint8_t packettype )
 }
 
 
-void SX1262Class::writeCommand(uint8_t Opcode, uint8_t *buffer, uint16_t size)
+void SX126XClass::writeCommand(uint8_t Opcode, uint8_t *buffer, uint16_t size)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.print(F("writeCommand "));
   Serial.println(Opcode, HEX);
 #endif
@@ -233,9 +257,9 @@ void SX1262Class::writeCommand(uint8_t Opcode, uint8_t *buffer, uint16_t size)
 }
 
 
-void SX1262Class::printASCIIPacket(uint8_t *buffer, uint8_t size)
+void SX126XClass::printASCIIPacket(uint8_t *buffer, uint8_t size)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("printASCIIPacket()"));
 #endif
 
@@ -251,9 +275,9 @@ void SX1262Class::printASCIIPacket(uint8_t *buffer, uint8_t size)
 }
 
 
-void SX1262Class::printHEXPacket(uint8_t *buffer, uint8_t size)
+void SX126XClass::printHEXPacket(uint8_t *buffer, uint8_t size)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("printHEXPacket()"));
 #endif
 
@@ -270,9 +294,9 @@ void SX1262Class::printHEXPacket(uint8_t *buffer, uint8_t size)
 }
 
 
-void SX1262Class::setRegulatorMode(uint8_t mode)
+void SX126XClass::setRegulatorMode(uint8_t mode)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setRegulatorMode()"));
 #endif
 
@@ -283,9 +307,9 @@ void SX1262Class::setRegulatorMode(uint8_t mode)
 
 
 
-void SX1262Class::printIrqStatus()
+void SX126XClass::printIrqStatus()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("printIrqStatus()"));
 #endif
 
@@ -355,11 +379,11 @@ void SX1262Class::printIrqStatus()
 }
 
 
-void SX1262Class::printRegisters(uint16_t Start, uint16_t End)
+void SX126XClass::printRegisters(uint16_t Start, uint16_t End)
 {
   //prints the contents of SX1262 registers to serial monitor
 
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("printRegisters()"));
 #endif
 
@@ -389,18 +413,18 @@ void SX1262Class::printRegisters(uint16_t Start, uint16_t End)
 }
 
 
-bool SX1262Class::checkDevice()
+bool SX126XClass::checkDevice()
 {
   //check there is a device out there, writes a register and reads back
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("checkDevice()"));
 #endif
 
   uint8_t Regdata1, Regdata2;
-  Regdata1 = readRegister(0x0907);               //mid byte of frequency setting
-  writeRegister(0x0907, (Regdata1 + 1));
-  Regdata2 = readRegister(0x0907);               //read changed value back
-  writeRegister(0x0907, Regdata1);               //restore register to original value
+  Regdata1 = readRegister(0x88e);               //low byte of frequency setting
+  writeRegister(0x88e, (Regdata1 + 1));
+  Regdata2 = readRegister(0x88e);               //read changed value back
+  writeRegister(0x88e, Regdata1);               //restore register to original value
 
   if (Regdata2 == (Regdata1 + 1))
   {
@@ -413,7 +437,7 @@ bool SX1262Class::checkDevice()
 }
 
 
-void SX1262Class::printHEXByte(uint8_t temp)
+void SX126XClass::printHEXByte(uint8_t temp)
 {
   if (temp < 0x10)
   {
@@ -423,7 +447,7 @@ void SX1262Class::printHEXByte(uint8_t temp)
 }
 
 
-void SX1262Class::printHEXByte0x(uint8_t temp)
+void SX126XClass::printHEXByte0x(uint8_t temp)
 {
   //print a byte, adding 0x
   Serial.print(F("0x"));
@@ -435,7 +459,7 @@ void SX1262Class::printHEXByte0x(uint8_t temp)
 }
 
 
-void SX1262Class::printASCIIorHEX(uint8_t temp)
+void SX126XClass::printASCIIorHEX(uint8_t temp)
 {
   if ((temp < 0x10) || (temp > 0x7E))
   {
@@ -450,10 +474,10 @@ void SX1262Class::printASCIIorHEX(uint8_t temp)
 }
 
 
-void SX1262Class::printAddressInfo()
+void SX126XClass::printAddressInfo()
 {
   //print the information for packet last received
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("printAddressInfo()"));
 #endif
   Serial.print(F("RXType,"));
@@ -465,12 +489,12 @@ void SX1262Class::printAddressInfo()
 }
 
 
-void SX1262Class::printReceptionInfoLoRa()
+void SX126XClass::printReceptionInfoLoRa()
 {
   //print the information for packet last received
   //note, _PacketSNR has already been converted into a signed value
   //_PacketRSSI is a signed value also
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("printReceptionInfoLoRa()"));
 #endif
 
@@ -484,10 +508,10 @@ void SX1262Class::printReceptionInfoLoRa()
 }
 
 
-bool SX1262Class::readPacketCRCError()
+bool SX126XClass::readPacketCRCError()
 {
 
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readPacketCRCError()"));
 #endif
 
@@ -505,9 +529,9 @@ bool SX1262Class::readPacketCRCError()
 }
 
 
-bool SX1262Class::readPacketHeaderValid()
+bool SX126XClass::readPacketHeaderValid()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readPacketHeaderValid()"));
 #endif
 
@@ -525,9 +549,9 @@ bool SX1262Class::readPacketHeaderValid()
 }
 
 
-bool SX1262Class::readPacketHeaderError()
+bool SX126XClass::readPacketHeaderError()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readPacketHeaderError()"));
 #endif
 
@@ -545,9 +569,9 @@ bool SX1262Class::readPacketHeaderError()
 }
 
 
-bool SX1262Class::readRXDone()
+bool SX126XClass::readRXDone()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readRXDone()"));
 #endif
 
@@ -565,9 +589,9 @@ bool SX1262Class::readRXDone()
 }
 
 
-bool SX1262Class::readTXDone()
+bool SX126XClass::readTXDone()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readTXDone()"));
 #endif
 
@@ -585,9 +609,9 @@ bool SX1262Class::readTXDone()
 }
 
 
-void SX1262Class::readRXBufferStatus()
+void SX126XClass::readRXBufferStatus()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readRXBufferStatus()"));
 #endif
 
@@ -599,9 +623,9 @@ void SX1262Class::readRXBufferStatus()
   
 
 
-uint8_t SX1262Class::readPacketAddressedLoRa(uint8_t *rxbuffer, uint8_t size)
+uint8_t SX126XClass::readPacketAddressedLoRa(uint8_t *rxbuffer, uint8_t size)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readPacketAddressed()"));
 #endif
 
@@ -614,13 +638,6 @@ uint8_t SX1262Class::readPacketAddressedLoRa(uint8_t *rxbuffer, uint8_t size)
   _RXPacketL = (buffer[0] - 3);
   _RXStart = buffer[1];
   _RXEnd = (_RXPacketL - 1);                    //calculate the new end of the packet in the buffer, to allow for addressing bits
-
-#ifdef SX1262DEBUG2
-  Serial.print(F("RXPacketL,"));
-  Serial.print(_RXPacketL);
-  Serial.print(F(",RXEnd,"));
-  Serial.println(_RXEnd);
-#endif
 
   digitalWrite(_NSS, LOW);                      //start the burst read
   SPI.transfer(RADIO_READ_BUFFER);
@@ -649,9 +666,9 @@ uint8_t SX1262Class::readPacketAddressedLoRa(uint8_t *rxbuffer, uint8_t size)
 
 
 
-uint8_t SX1262Class::readPacketLoRa(uint8_t *rxbuffer, uint8_t size)
+uint8_t SX126XClass::readPacketLoRa(uint8_t *rxbuffer, uint8_t size)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readPacket()"));
 #endif
 
@@ -662,8 +679,8 @@ uint8_t SX1262Class::readPacketLoRa(uint8_t *rxbuffer, uint8_t size)
   readCommand(RADIO_GET_RXBUFFERSTATUS, buffer, 2);
   _RXPacketL = buffer[0];
   
-  Serial.print(F("_RXPacketL "));
-  Serial.println(_RXPacketL);
+  //Serial.print(F("_RXPacketL "));
+  //Serial.println(_RXPacketL);
   
   if (_RXPacketL > size)               //check passed buffer is big enough for packet
   {
@@ -672,8 +689,8 @@ uint8_t SX1262Class::readPacketLoRa(uint8_t *rxbuffer, uint8_t size)
   
   RXstart = buffer[1];
   
-  Serial.print(F("RXstart "));
-  Serial.println(RXstart);
+  //Serial.print(F("RXstart "));
+  //Serial.println(RXstart);
    
   //RXEnd = RXStart + _RXPacketL;        //calculate RXEend
    
@@ -698,40 +715,44 @@ uint8_t SX1262Class::readPacketLoRa(uint8_t *rxbuffer, uint8_t size)
 
 
 
-bool SX1262Class::sendPacketLoRa(uint8_t *txbuffer, uint8_t size, uint32_t txtimeout, int8_t txpower, uint8_t _DIO)
+bool SX126XClass::sendPacketLoRa(uint8_t *txbuffer, uint8_t size, uint32_t txtimeout, int8_t txpower, uint8_t _DIO)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("sendPacketLoRa()"));
 #endif
   uint8_t index;
-  uint8_t maxindex = (size - 1);
+  //uint8_t maxindex = (size - 1);
   uint8_t bufferdata;
 
+  if (size == 0)
+  {
+   return false;
+  }
+  
   setStandby(MODE_STDBY_RC);
   setBufferBaseAddress(0, 0);
   checkBusy();
+  
   digitalWrite(_NSS, LOW);
   SPI.transfer(RADIO_WRITE_BUFFER);
   SPI.transfer(0);
 
-  for (index = 0; index <= maxindex; index++)
+  for (index = 0; index < size; index++)
   {
     bufferdata = txbuffer[index];
     SPI.transfer(bufferdata);
-
   }
 
   digitalWrite(_NSS, HIGH);
-  
-  writeRegister(REG_LR_PAYLOADLENGTH, size);
+  checkBusy();
+  _TXPacketL = size;
+  writeRegister(REG_LR_PAYLOADLENGTH, _TXPacketL);
   setTxParams(txpower, RAMP_TIME);
   setTx(txtimeout);                                                //this starts the TX
 
   //Serial.println(F("Waiting DIO high "));
   
   while (!digitalRead(_DIO));                                      //Wait for DIO to go high
-   
-  
    
   if (readIrqStatus() & IRQ_RX_TX_TIMEOUT )                         //check for timeout
   {
@@ -744,17 +765,19 @@ bool SX1262Class::sendPacketLoRa(uint8_t *txbuffer, uint8_t size, uint32_t txtim
 }
 
 
-bool SX1262Class::sendPacketAddressedLoRa(uint8_t *txbuffer, uint8_t size, char txpackettype, char txdestination, char txsource, uint32_t txtimeout, int8_t txpower, uint8_t _DIO)
+bool SX126XClass::sendPacketAddressedLoRa(uint8_t *txbuffer, uint8_t size, char txpackettype, char txdestination, char txsource, uint32_t txtimeout, int8_t txpower, uint8_t _DIO)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("sendPacketAddressedLoRa()"));
 #endif
   uint8_t index;
-  uint8_t maxindex = (size - 1);
   uint8_t txpacketL = 0;
   uint8_t bufferdata;
-  //uint32_t startmS, timemS;
-
+  
+  if (size == 0)
+  {
+   return false;
+  } 
 
   txpacketL = size + 3;                           //need to check for minimum of 6 max of 127
   setStandby(MODE_STDBY_RC);
@@ -768,21 +791,21 @@ bool SX1262Class::sendPacketAddressedLoRa(uint8_t *txbuffer, uint8_t size, char 
   SPI.transfer(txsource);                         //Source node
   txpacketL = 3 + size;                           //we have added 3 header bytes to size
 
-  for (index = 0; index <= maxindex; index++)
+  for (index = 0; index < size; index++)
   {
     bufferdata = txbuffer[index];
     SPI.transfer(bufferdata);
   }
 
   digitalWrite(_NSS, HIGH);
-  writeRegister(REG_LR_PAYLOADLENGTH, txpacketL);
+  checkBusy();
+  _TXPacketL = size;
+  writeRegister(REG_LR_PAYLOADLENGTH, _TXPacketL);
   setTxParams(txpower, RADIO_RAMP_10_US);
-  //startmS = millis();
+
   setTx(txtimeout);                               //this starts the TX
 
   while (!digitalRead(_DIO));                     //Wait for DIO to go high
-
-  //startmS = millis() - startmS;
 
   if (readIrqStatus() & IRQ_RX_TX_TIMEOUT )        //check for timeout
   {
@@ -796,136 +819,59 @@ bool SX1262Class::sendPacketAddressedLoRa(uint8_t *txbuffer, uint8_t size, char 
 
 
 
-/*
-void SX1262Class::rxEnable(int8_t pinRXEN, int8_t pinTXEN)
+
+void SX126XClass::rxEnable()
 {
-  //Enable RX mode on Ebyte E28-2G4M20S
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("rxEnable()"));
 #endif
 
-  digitalWrite(pinRXEN, HIGH);
-  digitalWrite(pinTXEN, LOW);
+  digitalWrite(_RXEN, HIGH);
+  digitalWrite(_TXEN, LOW);
 }
 
 
-void SX1262Class::txEnable(int8_t pinRXEN, int8_t pinTXEN)
+void SX126XClass::txEnable()
 {
-  //Enable TX mode on Ebyte E28-2G4M20S
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("txEnable()"));
 #endif
 
-  digitalWrite(pinRXEN, LOW);
-  digitalWrite(pinTXEN, HIGH);
+  digitalWrite(_RXEN, LOW);
+  digitalWrite(_TXEN, HIGH);
 }
 
-*/
-
-/*
-void SX1262Class::setRfFrequency(uint32_t frequency, int32_t offset)
-{
-#ifdef SX1262DEBUG
-  Serial.println(F("setRfFrequency()"));
-#endif
-
-  savedFrequency = frequency;
-  savedOffset = offset;
-
-  frequency = frequency + offset;
-  uint8_t buffer[3];
-  uint32_t freqtemp = 0;
-  freqtemp = ( uint32_t )( (double) frequency / (double)FREQ_STEP);
-  buffer[0] = ( uint8_t )( ( freqtemp >> 16 ) & 0xFF );
-  buffer[1] = ( uint8_t )( ( freqtemp >> 8 ) & 0xFF );
-  buffer[2] = ( uint8_t )( freqtemp & 0xFF );
-  writeCommand(RADIO_SET_RFFREQUENCY, buffer, 3);
-}
-*/
-
-/*
-//RF_Freq = freq_reg*32M/(2^25)-----> freq_reg = (RF_Freq * (2^25))/32
-void SX1262Class::setRfFrequency( uint32_t frequency, int32_t offset)
-{
-	uint8_t Opcode;
-	uint8_t Rf_Freq[4];
-	uint32_t RfFreq = 0;
-	
-	RfFreq = ( uint32_t )( ( float )frequency / ( float )FREQ_STEP );
-	
-	//checkBusy();
-	
-	Opcode = RADIO_SET_RFFREQUENCY;	//0x86
-	
-	Rf_Freq[0] = (RfFreq>>24)&0xFF;//MSB
-	Rf_Freq[1] = (RfFreq>>16)&0xFF;
-	Rf_Freq[2] = (RfFreq>>8)&0xFF;
-	Rf_Freq[3] = RfFreq&0xFF;//LSB
-	
-	Serial.print("Frequency bytes ");
-	Serial.print(Rf_Freq[0],HEX);
-	Serial.print("  ");
-	Serial.print(Rf_Freq[1],HEX);
-	Serial.print("  ");
-	Serial.print(Rf_Freq[2],HEX);
-	Serial.print("  ");
-	Serial.print(Rf_Freq[3],HEX);
-	Serial.println();
-	
-	
-	writeCommand(RADIO_SET_RFFREQUENCY, Rf_Freq, 4);
-	//SPI_NSS_LOW();
-	//spi_rw(SET_RF_FREQUENCY);
-	//spi_rw(Rf_Freq[0]);
-	//spi_rw(Rf_Freq[1]);
-	//spi_rw(Rf_Freq[2]);
-	//spi_rw(Rf_Freq[3]);
-	//SPI_NSS_HIGH();
-}
-*/
 
 
-void SX1262Class::setRfFrequency( uint32_t frequency, int32_t offset )
+
+void SX126XClass::setRfFrequency( uint32_t frequency, int32_t offset )
 {
 //Note RF_Freq = freq_reg*32M/(2^25)-----> freq_reg = (RF_Freq * (2^25))/32
 
   uint8_t Opcode;
   uint8_t Rf_Freq[4];
-  uint32_t RfFreq;
 
   savedFrequency = frequency;
   savedOffset = offset;
 
-  RfFreq = frequency + offset;
+  frequency = frequency + offset;
   
-  RfFreq = ( uint32_t )( ( double )frequency / ( double )FREQ_STEP );
+  frequency = ( uint32_t )( ( double )frequency / ( double )FREQ_STEP );
 
   checkBusy();
 
-  Rf_Freq[0] = (RfFreq>>24)&0xFF;//MSB
-  Rf_Freq[1] = (RfFreq>>16)&0xFF;
-  Rf_Freq[2] = (RfFreq>>8)&0xFF;
-  Rf_Freq[3] = RfFreq&0xFF;//LSB
+  Rf_Freq[0] = (frequency>>24)&0xFF;//MSB
+  Rf_Freq[1] = (frequency>>16)&0xFF;
+  Rf_Freq[2] = (frequency>>8)&0xFF;
+  Rf_Freq[3] = frequency&0xFF;//LSB
 
-  #ifdef SX1262DEBUG2
-  Serial.print("Frequency bytes ");
-  Serial.print(Rf_Freq[0],HEX);
-  Serial.print("  ");
-  Serial.print(Rf_Freq[1],HEX);
-  Serial.print("  ");
-  Serial.print(Rf_Freq[2],HEX);
-  Serial.print("  ");
-  Serial.print(Rf_Freq[3],HEX);
-  Serial.println();
-  #endif
-  
   writeCommand(RADIO_SET_RFFREQUENCY, Rf_Freq, 4);
 }
 
 
-void SX1262Class::setTxParams(int8_t TXpower, uint8_t RampTime)
+void SX126XClass::setTxParams(int8_t TXpower, uint8_t RampTime)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setTxParams()"));
 #endif
 
@@ -939,9 +885,9 @@ void SX1262Class::setTxParams(int8_t TXpower, uint8_t RampTime)
 }
 
 
-void SX1262Class::setBufferBaseAddress(uint8_t txBaseAddress, uint8_t rxBaseAddress)
+void SX126XClass::setBufferBaseAddress(uint8_t txBaseAddress, uint8_t rxBaseAddress)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setBufferBaseAddress()"));
 #endif
 
@@ -953,9 +899,9 @@ void SX1262Class::setBufferBaseAddress(uint8_t txBaseAddress, uint8_t rxBaseAddr
 }
 
 
-void SX1262Class::setDioIrqParams(uint16_t irqMask, uint16_t dio1Mask, uint16_t dio2Mask, uint16_t dio3Mask )
+void SX126XClass::setDioIrqParams(uint16_t irqMask, uint16_t dio1Mask, uint16_t dio2Mask, uint16_t dio3Mask )
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setDioIrqParams()"));
 #endif
 
@@ -979,40 +925,44 @@ void SX1262Class::setDioIrqParams(uint16_t irqMask, uint16_t dio1Mask, uint16_t 
 
 
 
-void SX1262Class::setHighSensitivity()
+void SX126XClass::setHighSensitivity()
 {
 //set RX Boosted gain mode
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setHighSensitivity()"));
 #endif
   writeRegister( REG_RX_GAIN, 0x96 ); // max LNA gain, increase current by ~2mA for around ~3dB in sensivity
-  //writeRegister(REG_LNA_REGIME, (readRegister(REG_LNA_REGIME) | 0xC0));
-}
+ }
 
 
-void SX1262Class::setLowPowerRX()
+void SX126XClass::setLowPowerRX()
 {
 //set RX power saving mode
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setLowPowerRX()"));
 #endif
 
-  //writeRegister(REG_LNA_REGIME, (readRegister(REG_LNA_REGIME) & 0x3F));
   writeRegister( REG_RX_GAIN, 0x94 ); // min LNA gain, reduce current by 2mA for around 3dB loss in sensivity
 }
 
 
-void SX1262Class::setRx(uint32_t timeout)
+void SX126XClass::setRx(uint32_t timeout)
 {
  //SX126x base timeout in units of 15.625 µs
  //timeout passed to function in mS
  //range is 1mS to 67108 seconds
  
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setRx()"));
 #endif
   uint8_t buffer[3];
-
+  clearIrqStatus(IRQ_RADIO_ALL);
+  
+  if (_rxtxpinmode)  
+  {
+  rxEnable();
+  }
+  
   timeout = timeout << 6;         //timeout passed in mS, multiply by 64 to convert units of 15.625us to 1mS
   
   //Serial.print(F("Timeout "));
@@ -1034,17 +984,19 @@ void SX1262Class::setRx(uint32_t timeout)
 
 
 
-void SX1262Class::setRx2(uint32_t timeout)
+void SX126XClass::setRx2(uint32_t timeout)
 {
  //SX126x base timeout in units of 15.625 µs
  //timeout passed to function in mS
  //range is 1mS to 262 seconds
  
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setRx()"));
 #endif
   uint8_t buffer[3];
 
+  clearIrqStatus(IRQ_RADIO_ALL);
+  
   timeout = timeout << 6;         //timeout passed in mS, multiply by 64 to convert units of 15.625us to 1mS
   
   //Serial.print(F("Timeout "));
@@ -1067,9 +1019,9 @@ void SX1262Class::setRx2(uint32_t timeout)
 
 
 
-uint16_t SX1262Class::readIrqStatus()
+uint16_t SX126XClass::readIrqStatus()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.print(F("readIrqStatus()"));
 #endif
 
@@ -1082,9 +1034,9 @@ uint16_t SX1262Class::readIrqStatus()
 }
 
 
-bool SX1262Class::packetOK(uint16_t mask)
+bool SX126XClass::packetOK(uint16_t mask)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.print(F("packetOK()"));
 #endif
 
@@ -1103,9 +1055,9 @@ bool SX1262Class::packetOK(uint16_t mask)
 }
 
 
-void SX1262Class::readRegisters(uint16_t address, uint8_t *buffer, uint16_t size)
+void SX126XClass::readRegisters(uint16_t address, uint8_t *buffer, uint16_t size)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readRegisters()"));
 #endif
 
@@ -1116,7 +1068,7 @@ void SX1262Class::readRegisters(uint16_t address, uint8_t *buffer, uint16_t size
   addr_l = address & 0x00FF;
   checkBusy();
 
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("ReadRegisters "));
   Serial.print(addr_h, HEX);
   Serial.print(addr_l, HEX);
@@ -1129,13 +1081,13 @@ void SX1262Class::readRegisters(uint16_t address, uint8_t *buffer, uint16_t size
   SPI.transfer(0xFF);
   for (index = 0; index < size; index++)
   {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
     Serial.println(F(" "));
     Serial.print(*(buffer + index));
 #endif
     *(buffer + index) = SPI.transfer(0xFF);
   }
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println();
 #endif
   digitalWrite(_NSS, HIGH);
@@ -1143,9 +1095,9 @@ void SX1262Class::readRegisters(uint16_t address, uint8_t *buffer, uint16_t size
 }
 
 
-uint8_t SX1262Class::readRegister(uint16_t address)
+uint8_t SX126XClass::readRegister(uint16_t address)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readRegister()"));
 #endif
 
@@ -1156,9 +1108,9 @@ uint8_t SX1262Class::readRegister(uint16_t address)
 }
 
 
-void SX1262Class::clearIrqStatus(uint16_t irqMask)
+void SX126XClass::clearIrqStatus(uint16_t irqMask)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("clearIrqStatus()"));
 #endif
 
@@ -1170,9 +1122,9 @@ void SX1262Class::clearIrqStatus(uint16_t irqMask)
 }
 
 
-void SX1262Class::readCommand(uint8_t Opcode, uint8_t *buffer, uint16_t size)
+void SX126XClass::readCommand(uint8_t Opcode, uint8_t *buffer, uint16_t size)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readCommand()"));
 #endif
 
@@ -1194,9 +1146,9 @@ void SX1262Class::readCommand(uint8_t Opcode, uint8_t *buffer, uint16_t size)
 }
 
 
-void SX1262Class::readPacketReceptionLoRa()
+void SX126XClass::readPacketReceptionLoRa()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readPacketReceptionLoRa()"));
 #endif
 
@@ -1217,9 +1169,9 @@ void SX1262Class::readPacketReceptionLoRa()
 }
 
 
-void SX1262Class::writeRegisters(uint16_t address, uint8_t *buffer, uint16_t size)
+void SX126XClass::writeRegisters(uint16_t address, uint8_t *buffer, uint16_t size)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("writeRegisters()"));
 #endif
   uint8_t addr_l, addr_h;
@@ -1229,7 +1181,7 @@ void SX1262Class::writeRegisters(uint16_t address, uint8_t *buffer, uint16_t siz
   addr_h = address >> 8;
   checkBusy();
 
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("WriteRegisters "));
   Serial.print(addr_h, HEX);
   Serial.print(addr_l, HEX);
@@ -1242,14 +1194,14 @@ void SX1262Class::writeRegisters(uint16_t address, uint8_t *buffer, uint16_t siz
 
   for (i = 0; i < size; i++)
   {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
     Serial.println(F(" "));
     Serial.print(buffer[i]);
 #endif
     SPI.transfer(buffer[i]);
   }
 
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println();
 #endif
   digitalWrite(_NSS, HIGH);
@@ -1257,52 +1209,54 @@ void SX1262Class::writeRegisters(uint16_t address, uint8_t *buffer, uint16_t siz
 }
 
 
-void SX1262Class::writeRegister(uint16_t address, uint8_t value)
+void SX126XClass::writeRegister(uint16_t address, uint8_t value)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("writeRegisters()"));
 #endif
 
   writeRegisters( address, &value, 1 );
 }
 
-/*
-void SX1262Class::setSleep(uint8_t config)
+
+void SX126XClass::setSleep(uint8_t sleepconfig)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setSleep()"));
 #endif
-
-  //uint8_t sleepConfig;
-
-  //Opcode = 0x84;
-  //sleepConfig = 0x07; //bit2: 1: ; bit0: 0:
+  setStandby(MODE_STDBY_RC);
   checkBusy();
   digitalWrite(_NSS, LOW);
   SPI.transfer(RADIO_SET_SLEEP);
-  SPI.transfer(config);
+  SPI.transfer(sleepconfig);
   digitalWrite(_NSS, HIGH);
   delay(1);           //allow time for shutdown
 }
-*/
 
-void SX1262Class::setTx(uint32_t timeout)
+
+void SX126XClass::setTx(uint32_t timeout)
 {
  //SX126x base timeout in units of 15.625 µs
  //timeout passed to function in mS
  
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setTx()"));
 #endif
   uint8_t buffer[3];
-    
+  
+  clearIrqStatus(IRQ_RADIO_ALL);
+
+  if (_rxtxpinmode)  
+  {
+  txEnable();
+  } 
+  
   timeout = timeout << 6;         //timeout passed in mS, convert to units of 15.625us
   
   //Serial.print(F("Timeout value "));
   //Serial.print(timeout);
   //Serial.print(F("  "));
   
-  checkBusy();
   buffer[0] = (timeout>>16)&0xFF;
   buffer[1] = (timeout>>8)&0xFF;
   buffer[2] = timeout&0xFF;
@@ -1332,9 +1286,9 @@ void SX1262::SetTx(uint32_t timeout)
 }
 */
 
-uint8_t SX1262Class::readRXPacketL()
+uint8_t SX126XClass::readRXPacketL()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readRXPacketL()"));
 #endif
 
@@ -1346,41 +1300,41 @@ uint8_t SX1262Class::readRXPacketL()
 }
 
 
-uint8_t SX1262Class::readPacketRSSI()
+uint8_t SX126XClass::readPacketRSSI()
 {
   readPacketReceptionLoRa();
   return _PacketRSSI;
 }
 
 
-uint8_t SX1262Class::readPacketSNR()
+uint8_t SX126XClass::readPacketSNR()
 {
   readPacketReceptionLoRa();
   return _PacketSNR;
 }
 
 
-uint8_t SX1262Class::readRXPacketType()
+uint8_t SX126XClass::readRXPacketType()
 {
   return _RXPacketType;
 }
 
 
-uint8_t SX1262Class::readRXDestination()
+uint8_t SX126XClass::readRXDestination()
 {
   return _RXDestination;
 }
 
 
-uint8_t SX1262Class::readRXSource()
+uint8_t SX126XClass::readRXSource()
 {
   return _RXSource;
 }
 
 
-bool SX1262Class::sendFIFOLoRa(int32_t txtimeout, int8_t txpower, uint8_t _DIO)
+bool SX126XClass::sendFIFOLoRa(int32_t txtimeout, int8_t txpower, uint8_t _DIO)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("sendFIFOLoRa()"));
 #endif
 
@@ -1401,9 +1355,9 @@ bool SX1262Class::sendFIFOLoRa(int32_t txtimeout, int8_t txpower, uint8_t _DIO)
 }
 
 
-void SX1262Class::setPacketParams(uint16_t packetParam1, uint8_t  packetParam2, uint8_t packetParam3, uint8_t packetParam4, uint8_t packetParam5)
+void SX126XClass::setPacketParams(uint16_t packetParam1, uint8_t  packetParam2, uint8_t packetParam3, uint8_t packetParam4, uint8_t packetParam5)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("SetPacketParams()"));
 #endif
     
@@ -1433,9 +1387,9 @@ void SX1262Class::setPacketParams(uint16_t packetParam1, uint8_t  packetParam2, 
 }
 
 
-void SX1262Class::setModulationParams(uint8_t modParam1, uint8_t modParam2, uint8_t  modParam3, uint8_t  modParam4)
+void SX126XClass::setModulationParams(uint8_t modParam1, uint8_t modParam2, uint8_t  modParam3, uint8_t  modParam4)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("setModulationParams()"));
 #endif
   uint8_t regvalue;
@@ -1471,26 +1425,13 @@ modParam4 = getOptimisation(modParam1, modParam2);          //pass Spreading fac
  buffer[2] = modParam3;
  buffer[3] = modParam4;
   
-#ifdef SX1262DEBUG2
-  Serial.println();
-  Serial.print(F("modParam1="));
-  Serial.print(modParam1, HEX);
-  Serial.print(F(" modParam2="));
-  Serial.print(modParam2, HEX);
-  Serial.print(F(" modParam3="));
-  Serial.print(modParam3, HEX);
-  Serial.print(F(" modParam4="));
-  Serial.print(modParam4, HEX);
-  Serial.println();
-#endif
-
 writeCommand(RADIO_SET_MODULATIONPARAMS, buffer, 4);
 }
 
 
-bool SX1262Class::config()
+bool SX126XClass::config()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("config()"));
 #endif
 
@@ -1506,7 +1447,7 @@ bool SX1262Class::config()
 }
 
 
-void SX1262Class::printSavedModulationParams()
+void SX126XClass::printSavedModulationParams()
 {
   Serial.print(F("SavedModulationParams "));
   Serial.print(savedModParam1, HEX);
@@ -1530,9 +1471,9 @@ void SX1262Class::printSavedModulationParams()
 //***************************************************************************
 
 
-void SX1262Class::startWriteFIFO()
+void SX126XClass::startWriteFIFO()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("startWriteFIFO()"));
 #endif
 
@@ -1547,9 +1488,9 @@ void SX1262Class::startWriteFIFO()
 }
 
 
-void SX1262Class::endWriteFIFO()
+void SX126XClass::endWriteFIFO()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("endWriteFIFO()"));
 #endif
   _TXPacketL = _TXcount;
@@ -1558,9 +1499,9 @@ void SX1262Class::endWriteFIFO()
 }
 
 
-void SX1262Class::startReadFIFO()
+void SX126XClass::startReadFIFO()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("startReadFIFO()"));
 #endif
 
@@ -1582,9 +1523,9 @@ void SX1262Class::startReadFIFO()
 }
 
 
-void SX1262Class::endReadFIFO()
+void SX126XClass::endReadFIFO()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("endReadFIFO()"));
 #endif
 
@@ -1594,9 +1535,9 @@ void SX1262Class::endReadFIFO()
 
 
 
-void SX1262Class::writeUint8(uint8_t x)
+void SX126XClass::writeUint8(uint8_t x)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("writeUint8()"));
 #endif
 
@@ -1605,9 +1546,9 @@ void SX1262Class::writeUint8(uint8_t x)
   _TXcount++;                     //increment count of bytes written
 }
 
-uint8_t SX1262Class::readUint8()
+uint8_t SX126XClass::readUint8()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readUint8()"));
 #endif
   byte x;
@@ -1619,9 +1560,9 @@ uint8_t SX1262Class::readUint8()
 }
 
 
-void SX1262Class::writeInt8(int8_t x)
+void SX126XClass::writeInt8(int8_t x)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("writeInt8()"));
 #endif
 
@@ -1631,9 +1572,9 @@ void SX1262Class::writeInt8(int8_t x)
 }
 
 
-int8_t SX1262Class::readInt8()
+int8_t SX126XClass::readInt8()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readInt8()"));
 #endif
   int8_t x;
@@ -1645,9 +1586,9 @@ int8_t SX1262Class::readInt8()
 }
 
 
-void SX1262Class::writeInt16(int16_t x)
+void SX126XClass::writeInt16(int16_t x)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("writeInt16()"));
 #endif
 
@@ -1658,9 +1599,9 @@ void SX1262Class::writeInt16(int16_t x)
 }
 
 
-int16_t SX1262Class::readInt16()
+int16_t SX126XClass::readInt16()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readInt16()"));
 #endif
   byte lowbyte, highbyte;
@@ -1673,9 +1614,9 @@ int16_t SX1262Class::readInt16()
 }
 
 
-void SX1262Class::writeUint16(uint16_t x)
+void SX126XClass::writeUint16(uint16_t x)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("writeUint16()"));
 #endif
 
@@ -1686,9 +1627,9 @@ void SX1262Class::writeUint16(uint16_t x)
 }
 
 
-uint16_t SX1262Class::readUint16()
+uint16_t SX126XClass::readUint16()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("writeUint16()"));
 #endif
   byte lowbyte, highbyte;
@@ -1701,9 +1642,9 @@ uint16_t SX1262Class::readUint16()
 }
 
 
-void SX1262Class::writeInt32(int32_t x)
+void SX126XClass::writeInt32(int32_t x)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("writeInt32()"));
 #endif
 
@@ -1726,9 +1667,9 @@ void SX1262Class::writeInt32(int32_t x)
 }
 
 
-int32_t SX1262Class::readInt32()
+int32_t SX126XClass::readInt32()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readInt32()"));
 #endif
 
@@ -1750,9 +1691,9 @@ int32_t SX1262Class::readInt32()
 }
 
 
-void SX1262Class::writeUint32(uint32_t x)
+void SX126XClass::writeUint32(uint32_t x)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("writeUint32()"));
 #endif
 
@@ -1775,9 +1716,9 @@ void SX1262Class::writeUint32(uint32_t x)
 }
 
 
-uint32_t SX1262Class::readUint32()
+uint32_t SX126XClass::readUint32()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readUint32()"));
 #endif
 
@@ -1799,9 +1740,9 @@ uint32_t SX1262Class::readUint32()
 }
 
 
-void SX1262Class::writeFloat(float x)
+void SX126XClass::writeFloat(float x)
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("writeFloat()"));
 #endif
 
@@ -1824,9 +1765,9 @@ void SX1262Class::writeFloat(float x)
 }
 
 
-float SX1262Class::readFloat()
+float SX126XClass::readFloat()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readFloat()"));
 #endif
 
@@ -1853,30 +1794,30 @@ float SX1262Class::readFloat()
 //***************************************************************************
 
 
-uint8_t SX1262Class::readsavedModParam1()
+uint8_t SX126XClass::readsavedModParam1()
 {
   return savedModParam1;
 }
 
 
-uint8_t SX1262Class::readsavedModParam2()
+uint8_t SX126XClass::readsavedModParam2()
 {
   return savedModParam2;
 }
 
 
-uint8_t SX1262Class::readsavedModParam3()
+uint8_t SX126XClass::readsavedModParam3()
 {
   return savedModParam3;
 }
 
 
-uint8_t SX1262Class::readsavedModParam4()
+uint8_t SX126XClass::readsavedModParam4()
 {
   return savedModParam4;
 }
 
-uint8_t SX1262Class::readsavedPower()
+uint8_t SX126XClass::readsavedPower()
 {
   return savedTXPower;
 }
@@ -1884,7 +1825,7 @@ uint8_t SX1262Class::readsavedPower()
 
 
 
-uint32_t SX1262Class::getFreqInt()
+uint32_t SX126XClass::getFreqInt()
 {
   //get the current set device frequency from registers, return as long integer
   uint8_t MsbH, MsbL, Mid, Lsb;
@@ -1905,17 +1846,16 @@ uint32_t SX1262Class::getFreqInt()
 }
 
 /*
-uint8_t SX1262Class::returnSF(uint8_t data)
+uint8_t SX126XClass::returnSF(uint8_t data)
 {
   return (data >> 4);
 }
 */
 
-void SX1262Class::setDIO2AsRfSwitchCtrl()
+void SX126XClass::setDIO2AsRfSwitchCtrl()
 {
   //uint8_t buffer[1];
   uint8_t mode = 0x01;
-  checkBusy();
 
   //buffer[0] = 0x01;   //DIO2 is selected to be used to control an RF switch; DIO2 = 1 in TX mode
   
@@ -1923,7 +1863,7 @@ void SX1262Class::setDIO2AsRfSwitchCtrl()
 }
 
 /*
-void SX1262Class::setDIO2AsRfSwitchCtrl()
+void SX126XClass::setDIO2AsRfSwitchCtrl()
 {
   uint8_t buffer[1];
   checkBusy();
@@ -1936,10 +1876,9 @@ void SX1262Class::setDIO2AsRfSwitchCtrl()
 
 
 
-void SX1262Class::setDIO3AsTCXOCtrl(uint8_t tcxoVoltage)
+void SX126XClass::setDIO3AsTCXOCtrl(uint8_t tcxoVoltage)
 {
   uint8_t buffer[4];
-  checkBusy();
 
   buffer[0] = tcxoVoltage; 
   buffer[1] = 0x00;
@@ -1950,14 +1889,24 @@ void SX1262Class::setDIO3AsTCXOCtrl(uint8_t tcxoVoltage)
 }
 
 
-void SX1262Class::setPaConfig(uint8_t device, uint8_t dutycycle)
+void SX126XClass::setPaConfig(uint8_t dutycycle, uint8_t hpMax, uint8_t device)
 {
   uint8_t buffer[4];
-  checkBusy();
+  
+  if (hpMax == HPMAXAUTO)
+  {
+   if (device == DEVICE_SX1261)
+   {
+	hpMax = 0x00;
+   }
+   if (device == DEVICE_SX1262)
+   {
+   hpMax = 0x07;
+   }
+  }
 
   buffer[0] = dutycycle;   //paDutyCycle
-  buffer[1] = 0x07;        //hpMax:0x00~0x07; 7:22dbm
-  //buffer[1] = 0x00;        //hpMax:0x00~0x07; 7:22dbm
+  buffer[1] = hpMax;       //hpMax:0x00~0x07; 7:22dbm
   buffer[2] = device;      //deviceSel: 0 = SX1262; 1 = SX1261;
   buffer[3] = 0x01;        //reserved, always 0x01
   
@@ -1965,7 +1914,7 @@ void SX1262Class::setPaConfig(uint8_t device, uint8_t dutycycle)
 }
 
 
-uint8_t SX1262Class::getOptimisation(uint8_t SpreadingFactor, uint8_t Bandwidth)
+uint8_t SX126XClass::getOptimisation(uint8_t SpreadingFactor, uint8_t Bandwidth)
 {
   //from the passed bandwidth (bandwidth) and spreading factor this routine
   //calculates whether low data rate optimisation should be on or off
@@ -1975,30 +1924,60 @@ uint8_t SX1262Class::getOptimisation(uint8_t SpreadingFactor, uint8_t Bandwidth)
   tempBandwidth = returnbandwidth(Bandwidth);
   symbolTime = calcSymbolTime(tempBandwidth, SpreadingFactor);
 
-#ifdef SX1262DEBUG3
-  Serial.print(F("Symbol Time "));
-  Serial.print(symbolTime, 3);
-  Serial.println(F("mS"));
-#endif
-
   if (symbolTime > 16)
   {
-#ifdef SX1262DEBUG3
-    Serial.println(F("LDR Opt on"));
-#endif
     return LDRO_ON;
   }
   else
   {
-#ifdef SX1262DEBUG3
-    Serial.println(F("LDR Opt off"));
-#endif
     return LDRO_OFF;
   }
 }
 
+uint32_t SX126XClass::getLoRaBandwidth()
+{
+  switch (savedModParam2)
+  {
+    case 0:
+      return 7800;
 
-uint32_t SX1262Class::returnbandwidth(uint8_t BWregvalue)
+    case 8:
+      return 10400;
+
+    case 1:
+      return 15600;
+
+    case 9:
+      return 20800;
+
+    case 2:
+      return 31200;
+
+    case 10:
+      return 41700;
+
+    case 3:
+      return 62500;
+
+    case 4:
+      return 125000;
+
+    case 5:
+      return 250000;
+
+    case 6:
+      return 500000;
+
+    default:
+      break;
+  }
+  return 0xFFFF;                      //so that a bandwidth not set can be identified
+}
+
+
+
+
+uint32_t SX126XClass::returnbandwidth(uint8_t BWregvalue)
 {
   switch (BWregvalue)
   {
@@ -2039,7 +2018,7 @@ uint32_t SX1262Class::returnbandwidth(uint8_t BWregvalue)
 }
 
 
-float SX1262Class::calcSymbolTime(float Bandwidth, uint8_t SpreadingFactor)
+float SX126XClass::calcSymbolTime(float Bandwidth, uint8_t SpreadingFactor)
 {
   //calculates symbol time from passed bandwidth (lbandwidth) and Spreading factor (lSF)and returns in mS
   float symbolTimemS;
@@ -2049,9 +2028,9 @@ float SX1262Class::calcSymbolTime(float Bandwidth, uint8_t SpreadingFactor)
 }
 
 
-uint8_t SX1262Class::readRXBufferPointer()
+uint8_t SX126XClass::readRXBufferPointer()
 {
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("readRXBufferPointer()"));
 #endif
 
@@ -2063,10 +2042,9 @@ uint8_t SX1262Class::readRXBufferPointer()
 }
 
 
-void SX1262Class::clearDeviceErrors()
+void SX126XClass::clearDeviceErrors()
 {
   uint8_t buffer[2];
-  checkBusy();
 
   buffer[0] = 0x00;                     //can only clear all errors
   buffer[1] = 0x00;
@@ -2076,33 +2054,17 @@ void SX1262Class::clearDeviceErrors()
 }
 
 
-void SX1262Class::calibrateDevice(uint8_t devices)
+void SX126XClass::calibrateDevice(uint8_t devices)
 {
-  checkBusy();
   writeCommand(RADIO_CALIBRATE, &devices, 1);
   delay(4);                              //calibration time for all devices is 3.5mS
 
 }
 
-/*
-void SX1262Class::calibrateDevice(uint8_t devices)
+
+void SX126XClass::printDeviceErrors()
 {
-  uint8_t buffer[1];
-  checkBusy();
-
-  buffer[0] = devices;                    
-  
-  writeCommand(RADIO_CALIBRATE, buffer, 1);
-  delay(4);                              //calibration time for all devices is 3.5mS
-
-}
-*/
-
-
-
-void SX1262Class::printDeviceErrors()
-{
-#ifdef SX1262DEBUG
+#ifdef SX126XDEBUG
   Serial.println(F("printDeviceErrors()"));
 #endif
 
@@ -2180,31 +2142,31 @@ void SX1262Class::printDeviceErrors()
 }
 
 
-uint32_t SX1262Class::readsavedFrequency()
+uint32_t SX126XClass::readsavedFrequency()
 {
 return savedFrequency;
 }
 
 
-uint32_t SX1262Class::readsavedOffset()
+uint32_t SX126XClass::readsavedOffset()
 {
 return savedOffset;
 }
 
 
-uint8_t SX1262Class::readsavedRegulatorMode()
+uint8_t SX126XClass::readsavedRegulatorMode()
 {
 return savedRegulatorMode;
 }
 
 
-uint8_t SX1262Class::readsavedPacketType()
+uint8_t SX126XClass::readsavedPacketType()
 {
 return savedPacketType;
 }
  
 
-void SX1262Class::setRxDutyCycle( uint32_t rxTime, uint32_t sleepTime )
+void SX126XClass::setRxDutyCycle( uint32_t rxTime, uint32_t sleepTime )
 {
     uint8_t buffer[6];
 
@@ -2222,28 +2184,30 @@ void SX1262Class::setRxDutyCycle( uint32_t rxTime, uint32_t sleepTime )
 }
 
 
-uint8_t SX1262Class::getOperatingMode()
+uint8_t SX126XClass::getOperatingMode()
 {
 return _OperatingMode;
 }
 
-
-void SX1262Class::setSleep(uint8_t sleepConfig)
+/*
+void SX126XClass::setSleep(uint8_t sleepConfig)
 {
     writeCommand(RADIO_SET_SLEEP, &sleepConfig, 1);
     _OperatingMode = MODE_SLEEP;
     delay(1);           //allow time for shutdown
 }
+*/
 
-void SX1262Class::wakeSleep()
+void SX126XClass::wake()
 {
 digitalWrite(_NSS, LOW);
+delay(1);
 digitalWrite(_NSS, HIGH);
 delay(1);
 }
 
 
-void SX1262Class::printLoraSettings()
+void SX126XClass::printLoraSettings()
 {
 Serial.print(F("Frequency,"));
 Serial.print(readsavedFrequency());
@@ -2257,3 +2221,88 @@ Serial.print(F(",LDROptimisation,"));
 Serial.print(readsavedModParam4());   
 }
 
+
+
+int32_t SX126XClass::getFrequencyErrorRegValue()
+{
+  int32_t FrequencyError;
+  uint32_t regmsb, regmid, reglsb, allreg;
+  
+  setStandby(MODE_STDBY_XOSC);
+  
+  regmsb = readRegister( REG_FREQUENCY_ERRORBASEADDR );
+  regmsb = regmsb & 0x0F;       //clear bit 20 which is always set
+  
+  regmid = readRegister( REG_FREQUENCY_ERRORBASEADDR + 1 );
+  
+  reglsb = readRegister( REG_FREQUENCY_ERRORBASEADDR + 2 );
+  
+  //FrequencyError = 0x000000 | ( ( 0x0F & ReadReg( REG_FREQUENCY_ERRORBASEADDR ) ) << 16 );
+  //FrequencyError = FrequencyError | ( ReadReg( REG_FREQUENCY_ERRORBASEADDR + 1 ) << 8 );
+  //FrequencyError = FrequencyError | ( ReadReg( REG_FREQUENCY_ERRORBASEADDR + 2 ) );
+  
+  
+  setStandby(MODE_STDBY_RC);
+
+  #ifdef SX126XDEBUG
+  Serial.println();
+  Serial.print(F("Registers "));
+  Serial.print(regmsb,HEX);
+  Serial.print(F(" "));
+  Serial.print(regmid,HEX);
+  Serial.print(F(" "));
+  Serial.println(reglsb,HEX);
+  #endif
+    
+  allreg = (uint32_t) ( regmsb << 16 ) | ( regmid << 8 ) | reglsb;
+
+  if (allreg & 0x80000)
+  {
+  FrequencyError = (0xFFFFF - allreg) * -1;
+  }
+  else
+  {
+  FrequencyError = allreg; 
+  }
+
+  return FrequencyError;
+}
+
+/*
+int32_t SX126XClass::getFrequencyErrorHz()
+{
+  int32_t error;
+  error = (getFrequencyErrorRegValue()) / FREQ_ERROR_CORRECTION;
+  return error;
+}
+*/
+
+
+
+int32_t SX126XClass::getFrequencyErrorHz()
+{
+  int32_t error, regvalue;
+  uint32_t bandwidth;
+  float divider;
+  bandwidth = getLoRaBandwidth();                   //gets the last configured
+  //Serial.print(F("Bandwidth "));
+  //Serial.println(bandwidth);
+  divider = (float) 1625000 / bandwidth;            //why the values from the SX1280 datasheet work I have no idea
+  //Serial.print(F("Divider "));
+  //Serial.println(divider,5);
+    
+  regvalue = getFrequencyErrorRegValue();
+  
+  //error = FREQ_ERROR_CORRECTION * regvalue;
+  
+  error = (FREQ_ERROR_CORRECTION * regvalue) / divider;
+  
+  //error = (int32_t) FREQ_ERROR_CORRECTION * ((regvalue) / (1600000/bandwidth));
+  return error;
+}
+
+void SX126XClass::setSyncWord(uint16_t syncword)
+{
+  writeRegister( REG_LR_SYNCWORD, ( syncword >> 8 ) & 0xFF );
+  writeRegister( REG_LR_SYNCWORD + 1, syncword & 0xFF );
+}
