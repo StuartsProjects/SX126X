@@ -1,60 +1,47 @@
 ## Examples
 
-The Examples folder contains a series of test programs for the SX1280. The programs are described at the bottom of the page. Its recommended to use the **SX1280_LoRa_Register_Test** program first to test the device connections are correct. 
+The Examples folder contains a series of test programs for the SX1261 and  SX1262. The programs are described below. Its recommended to use the **SX126X_LoRa_Register_Test** program first to test the device connections are correct. 
 
-A common feature of the programs is the uses of a series of defines in the settings.h file. These defines determine the frequency used, the bandwidth the spreading factor and coding rate used, for example;
+A common feature of the programs is the uses of a series of definitions in the Settings.h file. These defines determine the frequency used, the bandwidth the spreading factor and coding rate used, for example;
 
 
-    #define Frequency 2445000000        //frequency of transmissions    
-    #define Bandwidth LORA_BW_0400      //LoRa bandwidth    
-    #define SpreadingFactor LORA_SF10   //LoRa spreading factor    
-    #define CodeRate LORA_CR_4_5        //LoRa coding rate
+    const uint32_t Frequency = 434400000;     //frequency of transmissions
+    const uint32_t Offset = 0;                //offset frequency for calibration purposes  
+    const uint8_t Bandwidth = LORA_BW_125;    //LoRa bandwidth
+    const uint8_t SpreadingFactor = LORA_SF7; //LoRa spreading factor
+    const uint8_t CodeRate = LORA_CR_4_5;     //LoRa coding rate
+    const uint8_t Optimisation = LDRO_AUTO;   //low data rate optimisation setting
 
-<br>
+The full range of possible settings is within the 'SX126XLT_Includes.h' file. A summary of the relevant LoRa modem settings is below.  
+
+<br> 
 
 ### LoRa Modem Settings
 
     //LoRa bandwidths
-    #define LORA_BW_0200  //203khz
+    #define LORA_BW_500  //203khz
     #define LORA_BW_0400  //406khz
     #define LORA_BW_0800  //812khz
     #define LORA_BW_1600  //1625khz
 
-.
-
     //LoRa spreading factors
-    #define LORA_SF5
-    #define LORA_SF6 
-    #define LORA_SF7
-    #define LORA_SF8
-    #define LORA_SF9
-    #define LORA_SF10 
-    #define LORA_SF11
-    #define LORA_SF12
-.
+    #define LORA_BW_500  6      //actual 500000hz
+    #define LORA_BW_250  5      //actual 250000hz
+    #define LORA_BW_125  4      //actual 125000hz
+    #define LORA_BW_062  3      //actual  62500hz 
+    #define LORA_BW_041  10     //actual  41670hz
+    #define LORA_BW_031  2      //actual  31250hz 
+    #define LORA_BW_020  9      //actual  20830hz
+    #define LORA_BW_015  1      //actual  15630hz
+    #define LORA_BW_010  8      //actual  10420hz 
+    #define LORA_BW_007  0      //actual   7810hz
 
     //LoRa coding rates
-    #define LORA_CR_4_5
-    #define LORA_CR_4_6
-    #define LORA_CR_4_7
-    #define LORA_CR_4_8
+    #define LORA_CR_4_5  0x01
+    #define LORA_CR_4_6  0x02
+    #define LORA_CR_4_7  0x03
+    #define LORA_CR_4_8  0x04
 
-
-### FLRC Modem Settings
-
-    //FLRC bandwidth and bit rate
-    #define FLRC_BR_1_300_BW_1_2 0x45   //1.3Mbs  
-    #define FLRC_BR_1_000_BW_1_2 0x69   //1.04Mbs 
-    #define FLRC_BR_0_650_BW_0_6 0x86   //0.65Mbs
-    #define FLRC_BR_0_520_BW_0_6 0xAA   //0.52Mbs
-    #define FLRC_BR_0_325_BW_0_3 0xC7   //0.325Mbs
-    #define FLRC_BR_0_260_BW_0_3 0xEB   //0.26Mbs`
-.
-
-    //FLRC coding rate`
-    #define FLRC_CR_1_2  0x00           //coding rate 1:2
-    #define FLRC_CR_3_4  0x02           //coding rate 3:4
-    #define FLRC_CR_1_0  0x04           //coding rate 1 
 
 <br>
 <br>
@@ -63,15 +50,11 @@ A common feature of the programs is the uses of a series of defines in the setti
 
 Not yet tested
 
-### BLE Modem Settings
-
-Not yet tested
-
 <br>
 <br>
 ## Buffers
 
-The data to be sent is loaded into an array called TXBUFFER, the length can be varied to suit, with a maximum of 256 bytes for LoRa and 128  bytes for FLRC. Packets received by the device are pulled from the FIFO and moved into the array called RXBUFFER.
+The data to be sent is loaded into an array called TXBUFFER, the length can be varied to suit, with a maximum of 255 bytes for LoRa packets received by the device are pulled from the FIFO and moved into the array called RXBUFFER.
 
 
 ## Packet Addressing
@@ -80,7 +63,7 @@ LoRa is a two way technology, each device is a transceiver. Most often on a part
 
 In order to keep the software simple and allow for the receipt of signals from multiple receivers or directed commands to a particular node, a basic addressing scheme has been implemented and is used by some programs. There are library routines to send and receive packets in addressed and non-addressed format so you choose which to send. When using addressed mode regardless of the data content of the actual payload (in TXBUFFER) each packet sent has 3 control bytes at the beginning of the packet. In general the control bytes have been restricted to ASCII printable characters so that they can be shown directly on a terminal monitor. The 3 bytes are;
 
-**Packet type**. This either describes the content of the packet, which could be a GPS location payload or is a command to do something and there is no payload. Details of the packet types defined are in the library file 'SX1280LT_Program_Definitions.h'
+**Packet type**. This either describes the content of the packet, which could be a GPS location payload or is a command to do something and there is no payload. Details of the packet types defined are in the library file 'SX126XLT_Program_Definitions.h'
 
 **Packet Destination**. The node number that the packet is destined for.
 
@@ -96,44 +79,38 @@ T*2
 
 Which means there is a test packet (T) its been sent as a broadcast (*) and its from node 2.
 
-This simple protocol can be used to queue requests to intermittent receivers. For instance the high altitude balloon tracker software assumes that the in flight tracker does not listen for commands continuously; it only listens for incoming packets for short periods in order to minimise power consumption. At the beginning of a listen period (which may only be a few seconds) the tracker sends a ready (clear to send) packet. The receiver is normally not so power constrained so is left in permanent listen mode. The receiver has been given a queued request (could be to release a payload command for instance) and is waiting for the ready packet from the tracker. When the ready packet is received, the receiver sends the queued command and listens for an acknowledge packet. If the receiver does not receive an acknowledge it will keep queuing the request.
-
-The high altitude balloon tracking software uses the packet addressing to implement a command and control interface between the ground receiver and the remote balloon.  
+This simple protocol can be used to queue requests to intermittent receivers. For instance some high altitude balloon tracker software assumes that the in flight tracker does not listen for commands continuously; it only listens for incoming packets for short periods in order to minimise power consumption. At the beginning of a listen period (which may only be a few seconds) the tracker sends a ready (clear to send) packet. The receiver is normally not so power constrained so is left in permanent listen mode. The receiver has been given a queued request (could be a 'release a payload command' for instance) and is waiting for the ready packet from the tracker. When the ready packet is received, the receiver sends the queued command and listens for an acknowledge packet. If the receiver does not receive an acknowledge it will keep queuing the request.
 
 <br>
 
+For the example programs set the serial monitor baud rate to 115200 baud.
 
-**SX1280\_LoRa\_Register_Test** - Checks to see if a SX1280 device can be found. prints a list of register read. 
+**1 SX126XLT LoRa RegisterTest** - Checks to see if a SX126X device can be found. Prints a list of registers read. Use this program first to check the SX126X module is wired up correctly.  
 
-**SX1280LT\_LoRa\_Simple_TX** - Transmits a series of LoRa packets according to the LoRa parameters in the settings.h file. Used together with matching RX program
+**2 SX126XLT LoRa Simple TX** - Transmits a series of LoRa packets according to the LoRa parameters in the Settings.h file. The LED will flash when a packet is transmitted. Used together with matching RX program. 
 
-**SX1280LT\_LoRa\_Simple\_RX** - Receives a LoRa packets according to the LoRa parameters in the settings.h file. Results displayed in IDE serial monitor. Used together with matching TX program. The LED will flash when a packet is received, you can add and enable a buzzer too. 
+**3 SX126XLT LoRa Simple RX** - Receives LoRa packets according to the LoRa parameters in the settings.h file. Results, RSSI, SNR, errors etc are  displayed in the Arduino IDE serial monitor. The LED will flash when a packet is received, you can add and enable a buzzer too. Used together with matching TX program.  
 
-**SX1280LT\_LoRa\_Link\_Test\_TX** - This used for testing the sensitivity of links or antennas etc. The transmitter sends a sequence of packets starting at a specified power (in settings.h) and decrease the power used to send the packet by 1dBm at a time. The packet contains the ASCII representation of the packet power such a +10 for 10dBm, +01 for 1dBm and -10 for -10dBm. The receiver prints these ASCII values so you can see at what power level the link fails. Use the SX1280LT_LoRa_Simple_RX program to receive the packets. This program used addressed packets.
+**4 SX126XLT LoRa Link Test TX** - This used for testing the sensitivity of links or antennas etc. The transmitter sends a sequence of packets starting at a specified power (in settings.h) and decreasing the power used to send the packet by 1dBm at a time. The packet contains the ASCII representation of the packet power such a +10 for 10dBm, +01 for 1dBm and -10 for -10dBm. The receiver prints these ASCII values so you can see at what power level the link fails. Use the '3 SX126XLT_LoRa_Simple_RX' program to receive the packets. This program used addressed packets. The principles of this type of link testing are discussed, for 434Mhz LoRa in the document '[Testing and Comparing - December 2018](https://github.com/LoRaTracker/Link-Tester2/blob/master/Testing%20and%20Comparing%20-%20December%202018.pdf)' see the section on 'Test Software – Descending Power Tests' in particular. 
 
-### Ranging Programs
+**5 SX126XLT LoRa FrequencyCounter Check TX**
 
-These are to be considered a work in progress, not intended for any mission critical use. During some recent balloon flights the ranging function would occasionally return invalid results, not yet sure why. 
+This program generates a LoRa packet that is around 6 seconds long. The program can be used for checking the frequency programmed for the SX126X is as expected and for measuring the power output level.
 
+**6 SX126XLT LoRa RX Frequency Error Check**
 
-**SX1280LT\_Ranging\_Receiver**
+This receiver program demonstrates the use of the ability of the SX126X to measure the frequency error, in relation to the receivers frequency, of an incoming packet. Prints the frequency error over an average of 10 packets to the serial monitor. Can be used to ensure that modules are close together in frequency. 
 
-This is the program for the node that will respond to ranging request. It waits for incoming ranging requests and if valid responds with a packet back to the requester. 
+**9 SX126XLT LoRa TX and Sleep**
 
-
-**SX1280L\T_Ranging\_Requester**
-
-This program transmits ranging requests. If the receivers response is picked up the distance is calculated and averaged over 5 ranging attempts. 
-The ranging requester can send requests to specific receivers, see the SX128 datasheet for details. In these examples an address of 16 is used fore both RX and TX so that there is a direct match.
+The SX126X has features that allow the register state of the device to be saved internally before putting the device into low current deep sleep. When the device is woken up, by pulsing the NSS select pin, the device reloads all the internal registers and the device can continue as if it had never been asleep. The feature avoids having to reconfigure the device on wakeup. The program sends a packet 'Hello World1' goes into deep sleep for around 10 seconds, wakes up an attempts to transmit a 'Hello World2'. Packet. If the wakeup is working correctly then the '3 SX126XLT LoRa Simple RX' program should show both packets arriving.  
 
 
-**SX1280LT\_Ranging\_Calibration\_Checker**
-
-This is used to calibrate the ranging function, see the separate document 'Ranging Calibration.md' for details on how to use it. Needs the ranging receiver running.
 
 Enjoy. 
-
+<br>
+<br>
 ### Stuart Robinson
-### July 2019
+### October 2019
 
 

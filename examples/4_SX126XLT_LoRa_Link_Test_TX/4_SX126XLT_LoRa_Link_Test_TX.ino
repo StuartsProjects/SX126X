@@ -1,13 +1,9 @@
-#define programversion "V1.0"
-#define Serial_Monitor_Baud 115200
-
-
 /*
 ******************************************************************************************************
 
   LoRaTracker Programs for Arduino
 
-  Copyright of the author Stuart Robinson
+  Copyright of the author Stuart Robinson 24/10/19
 
   http://www.LoRaTracker.uk
 
@@ -31,29 +27,32 @@
 
   Program Operation
 
-The LoRa settings to use are specified in the 'Settings.h' file. The program sends shore testr packet
-starting at start_power and ending at end_power (see Settings,h file). The packet sent contains the 
-power used to send the packet. The Simple_RX program will print the packet out like this;
+The LoRa settings to use are specified in the 'Settings.h' file. The program sends shore test packet
+starting at start_power and ending at end_power (see Settings.h file). The packet sent contains the 
+power used to send the packet. The SX126XLT_LoRa_Simple_RX program will print the received packet
+out like this;
 
 T*1+011,RSSI,-47dBm,SNR,10dB,Length,7,Packets,14,Errors,0,IRQreg,8012
 T*1 001,RSSI,-49dBm,SNR,7dB,Length,7,Packets,15,Errors,0,IRQreg,8012
 T*1-011,RSSI,-50dBm,SNR,10dB,Length,7,Packets,16,Errors,0,IRQreg,8012
 
-Above shows 3 packets received, the first at +01dBm (+011 in printout), the second at 0dBm (+001 in
+Above shows 3 packets received, the first at +01dBm (+011 in printout), the second at 0dBm (001 in
 printout) and the third at -1dBm (-011) in printout.   
 
 
 ******************************************************************************************************
 */
 
-
+#define programversion "V1.0"
+#define Serial_Monitor_Baud 115200
 
 #include <SPI.h>
+#include <SX126XLT.h>
+#include <SX126XLT_Program_Definitions.h>
 #include "Settings.h"
-#include <SX1280LT.h>
-#include <SX1280LT_Program_Definitions.h>
 
-SX1280Class SX1280LT;
+
+SX126XClass SX126XLT;
 
 boolean SendOK;
 int8_t TestPower;
@@ -88,26 +87,26 @@ void loop()
 void packet_is_OK()
 {
   uint16_t IRQStatus;
-  IRQStatus = SX1280LT.readIrqStatus();                    //get the IRQ status
+  IRQStatus = SX126XLT.readIrqStatus();                    //get the IRQ status
   Serial.print(F(" "));
   Serial.print(TXPacketL);
   Serial.print(F(" Bytes SentOK"));
   Serial.print(F(",IRQreg,"));
   Serial.print(IRQStatus, HEX);
-  SX1280LT.printIrqStatus();
+  SX126XLT.printIrqStatus();
 }
 
 
 void packet_is_Error()
 {
   uint16_t IRQStatus;
-  IRQStatus = SX1280LT.readIrqStatus();                    //get the IRQ status
+  IRQStatus = SX126XLT.readIrqStatus();                    //get the IRQ status
   Serial.print(F(" SendError,"));
   Serial.print(F("Length,"));
   Serial.print(TXPacketL);
   Serial.print(F(",IRQreg,"));
   Serial.print(IRQStatus, HEX);
-  SX1280LT.printIrqStatus();
+  SX126XLT.printIrqStatus();
   delay(packet_delay);                                     //change LED flash so packet error visible
   delay(packet_delay);
   digitalWrite(LED1, HIGH);
@@ -121,7 +120,7 @@ void Send_Test_Packet(int8_t lpower)
 {
   //build and send the test packet in addressed form, 3 bytes will be added to begining of packet
   int8_t temppower;
-  uint8_t buff[3];                               //link test payload is 4 bytes 
+  uint8_t buff[3];                                         //link test payload is 4 bytes 
   TXPacketL = sizeof(buff);   
   if (lpower < 0)
   {
@@ -155,9 +154,9 @@ void Send_Test_Packet(int8_t lpower)
     buff[2] = (temppower + 0x30);
   }
 
-  SX1280LT.printASCIIPacket(buff, sizeof(buff));
-
-  SendOK = SX1280LT.sendPacketAddressedLoRa(buff, sizeof(buff), Testpacket, Broadcast, '1', 1000, TestPower, DIO1);
+  SX126XLT.printASCIIPacket(buff, sizeof(buff));
+  
+  SendOK = SX126XLT.sendPacketAddressedLoRa(buff, sizeof(buff), Testpacket, Broadcast, '1', 1000, TestPower, DIO1);
 
   if (!SendOK)
   {
@@ -172,7 +171,7 @@ void Send_Test_Packet(int8_t lpower)
 
 void Send_Test1Mode_Packet()
 {
-  //useed to allow an RX to switch mode and print totals
+  //used to allow an RX to switch mode and print totals
   
   uint8_t buff[3];          //Test1Mode_Packet is 3 bytes 
   
@@ -181,7 +180,7 @@ void Send_Test1Mode_Packet()
   buff[2] = highByte(Batch);
   TXPacketL = sizeof(buff);
   
-  SendOK = SX1280LT.sendPacketAddressedLoRa(buff, sizeof(buff), TestMode1, Broadcast, ThisNode, 1000, start_power, DIO1);
+  SendOK = SX126XLT.sendPacketAddressedLoRa(buff, sizeof(buff), TestMode1, Broadcast, ThisNode, 1000, start_power, DIO1);
   
   if (!SendOK)
   {
@@ -194,7 +193,6 @@ void Send_Test1Mode_Packet()
   
   delay(mode_delaymS);
 }
-
 
 
 void led_Flash(uint16_t flashes, uint16_t delaymS)
@@ -212,21 +210,31 @@ void led_Flash(uint16_t flashes, uint16_t delaymS)
 
 void setup_LoRa()
 {
-  SX1280LT.setStandby(STDBY_RC);
-  SX1280LT.setRegulatorMode(USE_LDO);
-  SX1280LT.setPacketType(PACKET_TYPE_LORA);
-  SX1280LT.setRfFrequency(Frequency, 0);
-  SX1280LT.setBufferBaseAddress(0, 0);
-  SX1280LT.setModulationParams(SpreadingFactor, Bandwidth, CodeRate);
-  SX1280LT.setPacketParams(12, LORA_PACKET_VARIABLE_LENGTH, 255, LORA_CRC_ON, LORA_IQ_NORMAL, 0, 0);
-  SX1280LT.setDioIrqParams(IRQ_RADIO_ALL, (IRQ_TX_DONE + IRQ_RX_TX_TIMEOUT), 0, 0);   //set for IRQ on TX done and timeout on DIO1
+  SX126XLT.setStandby(MODE_STDBY_RC);
+  SX126XLT.setRegulatorMode(USE_DCDC);
+  SX126XLT.setPaConfig(0x04, HPMAXAUTO, DEVICE_SX1262);
+  SX126XLT.setDIO3AsTCXOCtrl(TCXO_CTRL_3_3V);
+  SX126XLT.calibrateDevice(ALLDevices);                     //is required after setting TCXO
+  SX126XLT.setDIO2AsRfSwitchCtrl();
+  SX126XLT.setPacketType(PACKET_TYPE_LORA);
+  SX126XLT.setRfFrequency(Frequency, Offset);
+  SX126XLT.setModulationParams(SpreadingFactor, Bandwidth, CodeRate, Optimisation);
+  SX126XLT.setBufferBaseAddress(0, 0);
+  SX126XLT.setPacketParams(8, LORA_PACKET_VARIABLE_LENGTH, 255, LORA_CRC_ON, LORA_IQ_NORMAL);
+  SX126XLT.setDioIrqParams(IRQ_RADIO_ALL, (IRQ_TX_DONE + IRQ_RX_TX_TIMEOUT), 0, 0);   //set for IRQ on TX done and timeout on DIO1
+  //the appropriate syncword can be defined here, the deafult at reset is LORA_MAC_PRIVATE_SYNCWORD 
+  //SX126XLT.setSyncWord(LORA_MAC_PRIVATE_SYNCWORD);        //0x1424, but actually 0x12
+  //SX126XLT.setSyncWord(LORA_MAC_PUBLIC_SYNCWORD);         //0x3444, but actually 0x34 as for LoRaWAN  
 }
+
 
 
 void setup()
 {
+  uint32_t temp;
+  
   pinMode(LED1, OUTPUT);
-  led_Flash(2, 250);
+  led_Flash(2, 125);
 
   Serial.begin(Serial_Monitor_Baud);
   Serial.println();
@@ -236,11 +244,16 @@ void setup()
   Serial.println(F(programversion));
   Serial.println();
 
-  Serial.println(F("SX1280LT_LoRa_Link_Test_TX Starting"));
+  Serial.println(F("4_SX126XLT_LoRa_Link_Test_TX Starting"));
 
-  if (SX1280LT.begin(NSS, NRESET, RFBUSY, DIO1, DIO2, DIO3))
+  SPI.begin();
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));
+  
+  if (SX126XLT.begin(NSS, NRESET, RFBUSY, DIO1, DIO2, DIO3))
   {
     Serial.println(F("Device found"));
+    led_Flash(2, 125);
+    delay(1000);
   }
   else
   {
@@ -251,11 +264,12 @@ void setup()
     }
   }
 
-  setup_LoRa();
-
-  led_Flash(2, 250);
-
-  Serial.println(F("LoRa Transmitter ready"));
+  SX126XLT.setupLoRaTX(Frequency, Offset, SpreadingFactor, Bandwidth, CodeRate, Optimisation, DEVICE_SX1262);
+  
+  Serial.print(F("Receiver ready - RXBUFFER_SIZE "));
+  Serial.println(RXBUFFER_SIZE);
+  SX126XLT.printLoraSettings();
+  Serial.println();
   Serial.println();
 }
 

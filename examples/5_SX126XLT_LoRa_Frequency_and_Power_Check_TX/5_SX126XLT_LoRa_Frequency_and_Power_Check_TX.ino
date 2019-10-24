@@ -1,7 +1,3 @@
-#define programversion "V1.0"
-#define Serial_Monitor_Baud 115200
-
-
 /*
 ******************************************************************************************************
 
@@ -31,25 +27,29 @@
 
   Program Operation
 
-  The LoRa settings to use are specified in the 'Settings.h' file.
+  This repeatadly transmits a long packet, approx 6 seconds,  so that there is enough air time to 
+  measure the output on a frequency counter.
 
 
 ******************************************************************************************************
 */
 
-#include <SPI.h>
-#include "Settings.h"
-#include <SX1280LT.h>
+#define programversion "V1.0"
+#define Serial_Monitor_Baud 115200
 
-SX1280Class SX1280LT;
+#include <SPI.h>
+#include <SX126XLT.h>
+#include "Settings.h"
+
+SX126XClass SX126XLT;
 
 boolean SendOK;
 int8_t TestPower;
 uint8_t TXPacketL;
+float temp;
 
 void loop()
 {
-  TestPower = start_power;
   digitalWrite(LED1, HIGH);
   Serial.print(TestPower);
   Serial.print(F("dBm "));
@@ -80,27 +80,39 @@ void packet_is_OK()
 void packet_is_Error()
 {
   uint16_t IRQStatus;
-  IRQStatus = SX1280LT.readIrqStatus();                    //get the IRQ status
+  IRQStatus = SX126XLT.readIrqStatus();          //get the IRQ status
   Serial.print(F("SendError,"));
   Serial.print(F("Length,"));
   Serial.print(TXPacketL);
   Serial.print(F(",IRQreg,"));
   Serial.print(IRQStatus, HEX);
-  SX1280LT.printIrqStatus();
+  SX126XLT.printIrqStatus();
   digitalWrite(LED1, LOW);                       //this leaves the LED on slightly longer for a packet error
 }
 
 
 bool Send_Test_Packet()
 {
-  uint8_t buff[] = "Hello World!";
-  TXPacketL = sizeof(buff);
+  uint8_t bufffersize;
+  //gives a circa 6 second packet at bandwidth 10khz, SF10 
+  uint8_t buff[] = "Hello World!1234Hello World!1234Hello World!1234Hello World!1234";   
+  
+  if (sizeof(buff) > TXBUFFER_SIZE)              //check that defined buffer is not larger than TX_BUFFER
+  {
+  bufffersize = TXBUFFER_SIZE;  
+  }
+  else
+  {
+   bufffersize = sizeof(buff);
+  }
 
-  SX1280LT.printASCIIPacket(buff, sizeof(buff));
+  TXPacketL = bufffersize;
+
+  SX126XLT.printASCIIPacket(buff, bufffersize);
 
   digitalWrite(LED1, HIGH);
 
-  if (SX1280LT.sendPacketLoRa(buff, sizeof(buff), 1000, TestPower, DIO1))
+  if (SX126XLT.sendPacketLoRa(buff, bufffersize, 20000, TXpower, DIO1))    //timeout is 10 seconds
   {
     digitalWrite(LED1, LOW);
     return true;
@@ -127,21 +139,25 @@ void led_Flash(uint16_t flashes, uint16_t delaymS)
 
 void setup_LoRa()
 {
-  SX1280LT.setStandby(STDBY_RC);
-  SX1280LT.setRegulatorMode(USE_LDO);
-  SX1280LT.setPacketType(PACKET_TYPE_LORA);
-  SX1280LT.setRfFrequency(Frequency, 0);
-  SX1280LT.setBufferBaseAddress(0, 0);
-  SX1280LT.setModulationParams(SpreadingFactor, Bandwidth, CodeRate);
-  SX1280LT.setPacketParams(12, LORA_PACKET_VARIABLE_LENGTH, 255, LORA_CRC_ON, LORA_IQ_NORMAL, 0, 0);
-  SX1280LT.setDioIrqParams(IRQ_RADIO_ALL, (IRQ_TX_DONE + IRQ_RX_TX_TIMEOUT), 0, 0);   //set for IRQ on TX done and timeout on DIO1
+  SX126XLT.setStandby(MODE_STDBY_RC);
+  SX126XLT.setRegulatorMode(USE_DCDC);
+  SX126XLT.setPaConfig(0x04, HPMAXAUTO, DEVICE_SX1262);
+  SX126XLT.setDIO3AsTCXOCtrl(TCXO_CTRL_3_3V);
+  SX126XLT.calibrateDevice(ALLDevices);                //is required after setting TCXO
+  SX126XLT.setDIO2AsRfSwitchCtrl();
+  SX126XLT.setPacketType(PACKET_TYPE_LORA);
+  SX126XLT.setRfFrequency(Frequency, Offset);
+  SX126XLT.setModulationParams(SpreadingFactor, Bandwidth, CodeRate, Optimisation);
+  SX126XLT.setBufferBaseAddress(0, 0);
+  SX126XLT.setPacketParams(8, LORA_PACKET_VARIABLE_LENGTH, 255, LORA_CRC_ON, LORA_IQ_NORMAL);
+  SX126XLT.setDioIrqParams(IRQ_RADIO_ALL, (IRQ_TX_DONE + IRQ_RX_TX_TIMEOUT), 0, 0);   //set for IRQ on TX done and timeout on DIO1
 }
 
 
 void setup()
 {
   pinMode(LED1, OUTPUT);
-  led_Flash(2, 250);
+  led_Flash(2, 125);
 
   Serial.begin(Serial_Monitor_Baud);
   Serial.println();
@@ -151,11 +167,16 @@ void setup()
   Serial.println(F(programversion));
   Serial.println();
 
-  Serial.println(F("SX1280LT_LoRa_Simple_TX Starting"));
+  Serial.println(F("5_SX126XLT_LoRa_Simple_TX Starting"));
 
-  if (SX1280LT.begin(NSS, NRESET, RFBUSY, DIO1, DIO2, DIO3))
+  SPI.begin();
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));
+  
+  if (SX126XLT.begin(NSS, NRESET, RFBUSY, DIO1, DIO2, DIO3))
   {
     Serial.println(F("Device found"));
+    led_Flash(2, 125);
+    delay(1000);
   }
   else
   {
@@ -165,12 +186,11 @@ void setup()
       led_Flash(50, 50);                                            //long fast speed flash indicates device error
     }
   }
+  
+  SX126XLT.setupLoRaTX(Frequency, Offset, SpreadingFactor, Bandwidth, CodeRate, Optimisation, DEVICE_SX1262);
 
-  setup_LoRa();
-
-  led_Flash(2, 250);
-
-  Serial.println(F("LoRa Transmitter ready"));
+  Serial.print(F("Transmitter ready - TXBUFFER_SIZE "));
+  Serial.println(TXBUFFER_SIZE);
   Serial.println();
 }
 

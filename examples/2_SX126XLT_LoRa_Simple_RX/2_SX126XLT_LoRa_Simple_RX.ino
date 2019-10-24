@@ -1,10 +1,9 @@
-//SX1280LT_LoRa_Simple_RX.ino
 /*
 ******************************************************************************************************
 
   LoRaTracker Programs for Arduino
 
-  Copyright of the author Stuart Robinson
+  Copyright of the author Stuart Robinson 24/10/19
 
   http://www.LoRaTracker.uk
 
@@ -17,7 +16,7 @@
   intended purpose and free from errors.
 
   The program listens for incoming packets using the LoRa settings in the 'Settings.h' file. The pins to
-  access the SX1280 need to be defined in the 'Settings.h' file also.
+  access the SX126X need to be defined in the 'Settings.h' file also.
 
   The program is a simple receiver. There is a printout of the valid packets received, these are assumed
   to be in ASCII printable text. The LED will flash for each packet received and the buzzer will sound,
@@ -27,6 +26,7 @@
 
   To Do:
 
+
 ******************************************************************************************************/
 
 
@@ -34,10 +34,11 @@
 #define Serial_Monitor_Baud 115300
 
 #include <SPI.h>
+#include <SX126XLT.h>
 #include "Settings.h"
-#include "SX1280LT.h"
 
-SX1280Class SX1280LT;
+
+SX126XClass SX126XLT;
 
 uint32_t RXpacketCount;
 uint32_t errors;
@@ -52,10 +53,11 @@ int8_t  PacketSNR;                               //stores signal to noise ratio 
 
 void loop()
 {
-  SX1280LT.clearIrqStatus(0xFFFF);               //Clear all the IRQ flags
-  SX1280LT.setRx(PERIOBASE_01_MS, 0);            //set no SX1280 RX timeout
+  SX126XLT.setRx(10000);                         //set 10 second RX timeout
 
   while (!digitalRead(DIO1));                    //wait for RxDone or timeout interrupt activating DIO1
+
+  delay(250);                                    //allow time for all IRQs to be set
 
   digitalWrite(LED1, HIGH);
 
@@ -64,12 +66,12 @@ void loop()
     digitalWrite(BUZZER, HIGH);
   }
 
-  SX1280LT.readPacketReceptionLoRa();
-  RXPacketL = SX1280LT.readRXPacketL();
-  PacketRSSI = SX1280LT.readPacketRSSI();
-  PacketSNR = SX1280LT.readPacketSNR();
+  SX126XLT.readPacketReceptionLoRa();
+  RXPacketL = SX126XLT.readRXPacketL();
+  PacketRSSI = SX126XLT.readPacketRSSI();
+  PacketSNR = SX126XLT.readPacketSNR();
 
-  if (SX1280LT.readIrqStatus() == (IRQ_RX_DONE + IRQ_HEADER_VALID + IRQ_PREAMBLE_DETECTED))
+  if (SX126XLT.readIrqStatus() == (IRQ_RX_DONE + IRQ_PREAMBLE_DETECTED + IRQ_HEADER_VALID))
   {
     packet_is_OK();
   }
@@ -94,7 +96,7 @@ void packet_is_OK()
   uint8_t len;
 
   RXpacketCount++;
-  len = SX1280LT.readPacket(RXBUFFER, RXBUFFER_SIZE);         //read the actual packet, maximum size specified in RXBUFFER_SIZE
+  len = SX126XLT.readPacketLoRa(RXBUFFER, RXBUFFER_SIZE);         //read the actual packet, maximum size specified in RXBUFFER_SIZE
 
   if (len == 0)
   {
@@ -102,8 +104,7 @@ void packet_is_OK()
   }
   else
   {
-    //Serial.print(F("PacketOK,"));
-    SX1280LT.printASCIIPacket(RXBUFFER, len);                 //len same as RXPacketL
+    SX126XLT.printASCIIPacket(RXBUFFER, len);                     //len same as RXPacketL
   }
 
   Serial.print(",RSSI,");
@@ -112,13 +113,13 @@ void packet_is_OK()
   Serial.print(F("dBm,SNR,"));
   Serial.print(PacketSNR);
   Serial.print(F("dB,Length,"));
-  Serial.print(RXPacketL);
+  Serial.print(len);
   Serial.print(F(",Packets,"));
   Serial.print(RXpacketCount);
   Serial.print(F(",Errors,"));
   Serial.print(errors);
 
-  IRQStatus = SX1280LT.readIrqStatus();
+  IRQStatus = SX126XLT.readIrqStatus();
   Serial.print(F(",IRQreg,"));
   Serial.print(IRQStatus, HEX);
 }
@@ -127,35 +128,36 @@ void packet_is_OK()
 void packet_is_Error()
 {
   uint16_t IRQStatus;
-
-  if (ENABLEBUZZER)
-  {
-    delay(50);
-    digitalWrite(BUZZER, HIGH);
-    delay(50);
-    digitalWrite(BUZZER, LOW);
-  }
-
-  IRQStatus = SX1280LT.readIrqStatus();                    //get the IRQ status
+  uint8_t len;
+  IRQStatus = SX126XLT.readIrqStatus();                    //get the IRQ status
   errors++;
-  Serial.print(F("PacketError,RSSI"));
 
-  Serial.print(PacketRSSI);
-  Serial.print(F("dBm,SNR,"));
-  Serial.print(PacketSNR);
-
-  Serial.print(F("dB,Length,"));
-  Serial.print(RXPacketL);
-  Serial.print(F(",IRQreg,"));
-  Serial.print(IRQStatus, HEX);
-  SX1280LT.printIrqStatus();
-  digitalWrite(LED1, LOW);
-
-  if (ENABLEBUZZER)
+  if (IRQStatus & IRQ_RX_TX_TIMEOUT)
   {
-    digitalWrite(BUZZER, LOW);
-    delay(100);
-    digitalWrite(BUZZER, HIGH);
+    Serial.print(F("RX Timeout"));
+  }
+  else
+  {
+    Serial.print(F("PacketError,"));
+
+    Serial.print(F(",RSSI"));
+    Serial.print(PacketRSSI);
+    Serial.print(F("dBm,SNR,"));
+    Serial.print(PacketSNR);
+
+    Serial.print(F("dB,Length,"));
+    Serial.print(RXPacketL);
+    Serial.print(F(",IRQreg,"));
+    Serial.print(IRQStatus, HEX);
+    SX126XLT.printIrqStatus();
+    digitalWrite(LED1, LOW);
+
+    if (ENABLEBUZZER)
+    {
+      digitalWrite(BUZZER, LOW);
+      delay(100);
+      digitalWrite(BUZZER, HIGH);
+    }
   }
 }
 
@@ -182,25 +184,34 @@ void led_Flash(uint16_t flashes, uint16_t delaymS)
 
 void setup_LoRa()
 {
-  SX1280LT.setStandby(STDBY_RC);
-  SX1280LT.setRegulatorMode(USE_LDO);
-  SX1280LT.setPacketType(PACKET_TYPE_LORA);
-  SX1280LT.setRfFrequency(Frequency, 0);
-  SX1280LT.setBufferBaseAddress(0, 0);
-  SX1280LT.setModulationParams(SpreadingFactor, Bandwidth, CodeRate);
-  SX1280LT.setPacketParams(12, LORA_PACKET_VARIABLE_LENGTH, RXBUFFER_SIZE, LORA_CRC_ON, LORA_IQ_NORMAL, 0, 0);
-  SX1280LT.setDioIrqParams(IRQ_RADIO_ALL, (IRQ_RX_DONE + IRQ_HEADER_ERROR + IRQ_CRC_ERROR + IRQ_RX_TX_TIMEOUT), 0, 0);
+  SX126XLT.setStandby(MODE_STDBY_RC);
+  SX126XLT.setRegulatorMode(USE_DCDC);
+  SX126XLT.setPaConfig(0x04, HPMAXAUTO, DEVICE_SX1262);
+  SX126XLT.setDIO3AsTCXOCtrl(TCXO_CTRL_3_3V);
+  SX126XLT.calibrateDevice(ALLDevices);                      //is required after setting TCXO
+  SX126XLT.setDIO2AsRfSwitchCtrl();
+  SX126XLT.setPacketType(PACKET_TYPE_LORA);
+  SX126XLT.setRfFrequency(Frequency, Offset);
+  SX126XLT.setModulationParams(SpreadingFactor, Bandwidth, CodeRate, LDRO_AUTO);
+  SX126XLT.setBufferBaseAddress(0, 0);
+  SX126XLT.setPacketParams(8, LORA_PACKET_VARIABLE_LENGTH, 255, LORA_CRC_ON, LORA_IQ_NORMAL);
+  SX126XLT.setDioIrqParams(IRQ_RADIO_ALL, (IRQ_RX_DONE + IRQ_RX_TX_TIMEOUT), 0, 0);   //set for IRQ on TX done and timeout on DIO1
+  SX126XLT.writeRegister( REG_LR_SYNCWORD, ( LORA_MAC_PRIVATE_SYNCWORD >> 8 ) & 0xFF );
+  SX126XLT.writeRegister( REG_LR_SYNCWORD + 1, LORA_MAC_PRIVATE_SYNCWORD & 0xFF );
+  //the appropriate syncword can be defined here, the deafult at reset is LORA_MAC_PRIVATE_SYNCWORD
+  //SX126XLT.setSyncWord(LORA_MAC_PRIVATE_SYNCWORD);        //0x1424, but actually 0x12
+  //SX126XLT.setSyncWord(LORA_MAC_PUBLIC_SYNCWORD);         //0x3444, but actually 0x34 as for LoRaWAN  
 }
 
 
 void setup(void)
 {
   pinMode(LED1, OUTPUT);
-  led_Flash(2, 250);
+  led_Flash(2, 125);
 
   Serial.begin(Serial_Monitor_Baud);
   Serial.println();
-  
+
   Serial.println();
   Serial.print(F(__TIME__));
   Serial.print(F(" "));
@@ -208,7 +219,7 @@ void setup(void)
   Serial.println(F(programversion));
   Serial.println();
   Serial.println();
-  Serial.println(F("SX1280LT_LoRa_Simple_RX Starting"));
+  Serial.println(F("2_SX126XLT_LoRa_Simple_RX Starting"));
   Serial.println();
 
   if (BUZZER >= 0)
@@ -224,25 +235,31 @@ void setup(void)
     Serial.println(F("BUZZER Not Enabled"));
   }
 
-  if (SX1280LT.begin(NSS, NRESET, RFBUSY, DIO1, DIO2, DIO3))
+  SPI.begin();
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));
+
+  if (SX126XLT.begin(NSS, NRESET, RFBUSY, DIO1, DIO2, DIO3))
   {
     Serial.println(F("Device found"));
+    led_Flash(2, 125);
+    delay(1000);
   }
   else
   {
     Serial.println(F("No device responding"));
     while (1)
     {
-      led_Flash(50, 50);                                            //long fast speed flash indicates device error
+      led_Flash(50, 50);                                            
     }
   }
 
-  setup_LoRa();
+    setup_LoRa();
 
-  led_Flash(2, 250);
 
   Serial.print(F("Receiver ready - RXBUFFER_SIZE "));
   Serial.println(RXBUFFER_SIZE);
+  SX126XLT.printLoraSettings();
+  Serial.println();
   Serial.println();
 }
 
