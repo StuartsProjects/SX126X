@@ -1,5 +1,8 @@
 # SX126x - Semtech UHF LoRa Transceivers
 
+##**24/10/19**
+<br>
+
 This is a a repository for my Arduino library for the Semtech SX1261 and SX1262 LoRa devices. 
 
 
@@ -9,15 +12,15 @@ For all example programs you will need to define the following pins as a minimum
 
 Most programs use a LED as an indicator and this is defined as pin LED1. Some programs will also turn on a buzzer as an indicator this is connected to pin BUZZER. DIO2 and DIO3 are currently not used directly by the library although they are used internally in the modules. Unused pins in the Settings.h file should be defined as -1.
  
-The SX126x operates in the sub-GHz UHF bands, 150 MHz to 960 MHz. In addition to having a LoRa modem the SX126x can send GFSK packets. The library only supports LoRa. 
+The SX126x operates in the sub-GHz UHF bands, 150 MHz to 960 MHz. In addition to having a LoRa modem the SX126x can send GFSK packets. This library only supports LoRa. 
 
-The SX1262 module from NiceRF uses a TCXO instead of a plain crystal and this makes operation at the narrowest bandwidth of 7.8Khz possible. The NiceRF SX1262 also implements switched DCDC converter to power the internals of the LoRa receiver which cuts receive current to about half of the value of SX127X based devices. The SX1261 can also implement the DCDC converter for the transmit side, which promises to significantly improve battery life. As yet there are no readily available small SX1261 modules.
+The SX1262 module from NiceRF uses a TCXO instead of a plain crystal and this makes operation at the narrowest bandwidth of 7.8Khz possible, see here for some details of testing; [SX1262 - improved LoRa device](https://www.loratracker.uk/sx1262-improved-lora-device/).  The NiceRF SX1262 also implements a switching DCDC converter to power the internals of the LoRa receiver, this cuts receive current to about half of the value of SX127X based devices. The SX1261 can also implement the DCDC converter for the transmit side, which promises to significantly improve battery life. As yet there are no readily available small SX1261 modules.
 
-Because of the different ways the SX1261 and SX1262 handle transmissions it is necessary to define which part is being used. This can be done by a specific call to when setting the PA config function;
+Because of the different ways the SX1261 and SX1262 handle transmissions it is necessary to define which part is being used. This can be done by a specific call when setting the PA config function;
 
 SX126XLT.setPaConfig(0x04, HPMAXAUTO, DEVICE_SX1262);
 
-or in the all in one setup function;
+or in the all in one setup function, for example;
 
 SX126XLT.setupLoRaTX(Frequency, Offset, SpreadingFactor, Bandwidth, CodeRate, Optimisation, DEVICE_SX1262);
 
@@ -55,8 +58,7 @@ Tested on 3.3V 8Mhz ATMega328P and ATMega1284P only.
   Check recovery from busy timeout error.
   Check rxEnable and txenable are working.
   Add packet implicit mode support - Added readPacketLoRaImplicit and examples
-  Review compatibility with SX127x devices.   
-
+  Review compatibility with SX127x devices.
 <br>
 <br>
 

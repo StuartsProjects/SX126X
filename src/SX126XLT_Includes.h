@@ -3,10 +3,9 @@
 
 #define XTAL_FREQ                                   32000000
 #define FREQ_DIV                                    33554432
-#define FREQ_STEP                                   0.95367431640625 // ( ( double )( XTAL_FREQ / ( double )FREQ_DIV ) )
+#define FREQ_STEP                                   0.95367431640625   // ( ( double )( XTAL_FREQ / ( double )FREQ_DIV ) )
 #define FREQ_ERR                                    0.47683715820312
-#define FREQ_ERROR_CORRECTION                     1.55               //this was measured on SX1280 for bandwidth of 400khz
-//#define FREQ_ERROR_CORRECTION                       8.48               //for SX126x this is adjusted for 125khz
+#define FREQ_ERROR_CORRECTION                       1.55               //this was measured on SX1280 for bandwidth of 400khz
 
 #define AUTO_RX_TX_OFFSET                           2
 

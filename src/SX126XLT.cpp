@@ -120,6 +120,7 @@ void SX126XClass::setupLoRaTX(uint32_t frequency, int32_t offset, uint8_t modPar
   setPaConfig(0x04, HPMAXAUTO, device);
   setDIO3AsTCXOCtrl(TCXO_CTRL_3_3V);
   calibrateDevice(ALLDevices);                //is required after setting TCXO
+  calibrateImage(frequency);
   setDIO2AsRfSwitchCtrl();
   setPacketType(PACKET_TYPE_LORA);
   setRfFrequency(frequency, offset);
@@ -137,6 +138,7 @@ void SX126XClass::setupLoRaRX(uint32_t frequency, int32_t offset, uint8_t modPar
   setPaConfig(0x04, HPMAXAUTO, device);
   setDIO3AsTCXOCtrl(TCXO_CTRL_3_3V);
   calibrateDevice(ALLDevices);                //is required after setting TCXO
+  calibrateImage(frequency);
   setDIO2AsRfSwitchCtrl();
   setPacketType(PACKET_TYPE_LORA);
   setRfFrequency(frequency, offset);
@@ -2301,8 +2303,42 @@ int32_t SX126XClass::getFrequencyErrorHz()
   return error;
 }
 
+
 void SX126XClass::setSyncWord(uint16_t syncword)
 {
   writeRegister( REG_LR_SYNCWORD, ( syncword >> 8 ) & 0xFF );
   writeRegister( REG_LR_SYNCWORD + 1, syncword & 0xFF );
+}
+
+
+void SX126XClass::calibrateImage(uint32_t freq)
+{
+    uint8_t calFreq[2];
+
+    if( freq > 900000000 )
+    {
+        calFreq[0] = 0xE1;
+        calFreq[1] = 0xE9;
+    }
+    else if( freq > 850000000 )
+    {
+        calFreq[0] = 0xD7;
+        calFreq[1] = 0xD8;
+    }
+    else if( freq > 770000000 )
+    {
+        calFreq[0] = 0xC1;
+        calFreq[1] = 0xC5;
+    }
+    else if( freq > 460000000 )
+    {
+        calFreq[0] = 0x75;
+        calFreq[1] = 0x81;
+    }
+    else if( freq > 425000000 )
+    {
+        calFreq[0] = 0x6B;
+        calFreq[1] = 0x6F;
+    }
+    writeCommand( RADIO_CALIBRATEIMAGE, calFreq, 2 );
 }

@@ -189,18 +189,17 @@ void setup_LoRa()
   SX126XLT.setPaConfig(0x04, HPMAXAUTO, DEVICE_SX1262);
   SX126XLT.setDIO3AsTCXOCtrl(TCXO_CTRL_3_3V);
   SX126XLT.calibrateDevice(ALLDevices);                      //is required after setting TCXO
+  SX126XLT.calibrateImage(Frequency);
   SX126XLT.setDIO2AsRfSwitchCtrl();
   SX126XLT.setPacketType(PACKET_TYPE_LORA);
   SX126XLT.setRfFrequency(Frequency, Offset);
   SX126XLT.setModulationParams(SpreadingFactor, Bandwidth, CodeRate, LDRO_AUTO);
   SX126XLT.setBufferBaseAddress(0, 0);
-  SX126XLT.setPacketParams(8, LORA_PACKET_VARIABLE_LENGTH, 255, LORA_CRC_ON, LORA_IQ_NORMAL);
-  SX126XLT.setDioIrqParams(IRQ_RADIO_ALL, (IRQ_RX_DONE + IRQ_RX_TX_TIMEOUT), 0, 0);   //set for IRQ on TX done and timeout on DIO1
-  SX126XLT.writeRegister( REG_LR_SYNCWORD, ( LORA_MAC_PRIVATE_SYNCWORD >> 8 ) & 0xFF );
-  SX126XLT.writeRegister( REG_LR_SYNCWORD + 1, LORA_MAC_PRIVATE_SYNCWORD & 0xFF );
-  //the appropriate syncword can be defined here, the deafult at reset is LORA_MAC_PRIVATE_SYNCWORD
-  //SX126XLT.setSyncWord(LORA_MAC_PRIVATE_SYNCWORD);        //0x1424, but actually 0x12
-  //SX126XLT.setSyncWord(LORA_MAC_PUBLIC_SYNCWORD);         //0x3444, but actually 0x34 as for LoRaWAN  
+  SX126XLT.setPacketParams(12, LORA_PACKET_VARIABLE_LENGTH, 255, LORA_CRC_ON, LORA_IQ_NORMAL);
+  SX126XLT.setDioIrqParams(IRQ_RADIO_ALL, (IRQ_RX_DONE + IRQ_RX_TX_TIMEOUT), 0, 0);   //set for IRQ on RX done and timeout on DIO1
+  //the appropriate syncword can be set here, the default is LORA_MAC_PRIVATE_SYNCWORD (0x12)
+  SX126XLT.setSyncWord(LORA_MAC_PRIVATE_SYNCWORD); //0x1424 written but 0x12 used
+  //SX126XLT.setSyncWord(LORA_MAC_PUBLIC_SYNCWORD);  //0x3444 written but 0x34 used as needed for LoRaWAN 
 }
 
 

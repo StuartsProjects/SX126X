@@ -44,7 +44,8 @@
   DONE - Check setSleep() - Total board sleep current is 7uA. 
   DONE - Add SX126XLT.setHighSensitivity(); to RX setup.
   DONE - Investigate use of calibrateDevice(uint8_t devices) - Add to setup routines
-
+  DONE - Review compatibility with SX127x devices. SX127x TX may have issues with short preamble
+  
   Investigate use of clearDeviceErrors()
   Check recovery from busy timeout error.
   Check rxEnable and txenable are working.
@@ -78,6 +79,7 @@ class SX126XClass  {
     void calibrateDevice(uint8_t devices);
     void printDeviceErrors();
     void wake();
+    void calibrateImage(uint32_t freq);
 
     void setupLoRaRX(uint32_t frequency, int32_t offset, uint8_t modParam1, uint8_t modParam2, uint8_t  modParam3, uint8_t  modParam4, uint8_t device);
     void setupLoRaTX(uint32_t frequency, int32_t offset, uint8_t modParam1, uint8_t modParam2, uint8_t  modParam3, uint8_t  modParam4, uint8_t device);
