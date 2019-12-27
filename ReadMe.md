@@ -54,14 +54,11 @@ Tested on 3.3V 8Mhz ATMega328P and ATMega1284P only.
 
 ### Changes Required to Library
 
-Investigate use of clearDeviceErrors()
-<br>
-Check recovery from busy timeout error.
-<br>
-Check rxEnable and txenable are working.
-<br>Add packet implicit mode support, Add readPacketLoRaImplicit and examples
-<br>Review compatibility with SX127x devices.
-<br>Investigate SetRxTxFallbackMode
+  Investigate use of clearDeviceErrors()
+  Check recovery from busy timeout error.
+  Check rxEnable and txenable are working.
+  Add packet implicit mode support - Added readPacketLoRaImplicit and examples
+  Review compatibility with SX127x devices.
 <br>
 <br>
 
