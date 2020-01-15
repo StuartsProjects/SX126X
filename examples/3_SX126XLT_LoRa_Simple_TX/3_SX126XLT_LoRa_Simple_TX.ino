@@ -1,11 +1,7 @@
 /*
 ******************************************************************************************************
 
-  LoRaTracker Programs for Arduino
-
   Copyright of the author Stuart Robinson 24/10/19
-
-  http://www.LoRaTracker.uk
 
   These programs may be used free of charge for personal, recreational and educational purposes only.
 
@@ -96,7 +92,7 @@ void packet_is_Error()
 
 bool Send_Test_Packet()
 {
-  uint8_t buff[] = "www.LoRaTracker.uk";
+  uint8_t buff[] = "Hello World 1234567890";
   TXPacketL = sizeof(buff);
   buff[TXPacketL-1] = '#';                                //replace null character at end of buffer so its visible at RX 
 
