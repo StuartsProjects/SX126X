@@ -40,7 +40,7 @@ To Do:
 const uint32_t Frequency = 434400000;           //frequency of transmissions
 const uint32_t Offset = 0;                      //offset frequency for calibration purposes  
 
-const uint8_t Bandwidth = LORA_BW_007;          //LoRa bandwidth
+const uint8_t Bandwidth = LORA_BW_125;          //LoRa bandwidth
 const uint8_t SpreadingFactor = LORA_SF7;       //LoRa spreading factor
 const uint8_t CodeRate = LORA_CR_4_5;           //LoRa coding rate
 const uint8_t Optimisation = LDRO_AUTO;         //low data rate optimisation setting
