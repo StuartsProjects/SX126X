@@ -1,11 +1,10 @@
 # SX126x - Semtech UHF LoRa Transceivers
 
-##**24/10/19**
 <br>
 
 **Please note:** this library will be replaced in the next few weeks with an library thay adds in support for the SX127x and SX128x LoRa devices, if you want to use the newer library then the install of this library will need to be removed. 
 
-**Stuart Robinson, 18\02\20**
+**Stuart Robinson, 18\03\20**
 
 <br>
 <br>
