@@ -2,9 +2,13 @@
 
 <br>
 
-**Please note:** this library will be replaced in the next few weeks with an library thay adds in support for the SX127x and SX128x LoRa devices, if you want to use the newer library then the install of this library will need to be removed. 
+##Updated 19/03/20
 
-**Stuart Robinson, 18\03\20**
+###This library will not longer be updated or supported. The functionality of this SX126X library has now been included in the SX12XX Library;
+
+[https://github.com/LoRaTracker/SX12XX-LoRa](https://github.com/LoRaTracker/SX12XX-LoRa)
+
+Please use the newer library in future. The SX12xx library uses the same sketch style for the SX126X, SX127X and SX128X devices. Applications such as the GPS tracker and sensor transmitter, originally written for the SX127X device have been converted to run on the SX126X devices.
 
 <br>
 <br>
